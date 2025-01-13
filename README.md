@@ -5,7 +5,23 @@ Improve code readability, modularity and separation between frontend and backend
   <img src="screenshot.png" width=400 >
 </p>
 
-## Create New Pages this way
+## Define your Model attributes and methods this way
+```python
+# backend/MainModel.py
+class MainModel:
+    # Model attributes
+    count = 0
+
+    def __init__(self) -> None:
+        pass
+
+    # Model methods
+    def increment_count(self):
+        self.count += 1
+```
+
+## And then create New Pages this way
+You can also access to Model methods/attributes from the `initUI` method
 ```python
 # frontend/pages/DemoPage.py
 from PyQt5.QtWidgets import QLabel, QPushButton
@@ -32,22 +48,7 @@ class DemoPage(BaseClassPage):                             # Must inherit from B
         self.label.setText(f"Count: {self.model.count}")    # access to Model attributes
 ```
 
-## And define your Model attributes and methods this way
-```python
-# backend/MainModel.py
-class MainModel:
-    # Model attributes
-    count = 0
-
-    def __init__(self) -> None:
-        pass
-
-    # Model methods
-    def increment_count(self):
-        self.count += 1
-```
-
-## Then add your page to the MainWindow
+## Then add your pages to the MainWindow
 ```python
 # main.py
 import sys
