@@ -7,6 +7,7 @@ Improve code readability, modularity and separation between frontend and backend
 
 ## Create New Pages this way
 ```python
+# frontend/pages/DemoPage.py
 from PyQt5.QtWidgets import QLabel, QPushButton
 from frontend.pages.BaseClassPage import BaseClassPage
 
@@ -32,9 +33,8 @@ class DemoPage(BaseClassPage):                             # Must inherit from B
 ```
 
 ## And define your Model attributes and methods this way
-`backend\MainModel.py`
 ```python
-
+# backend/MainModel.py
 class MainModel:
     # Model attributes
     count = 0
