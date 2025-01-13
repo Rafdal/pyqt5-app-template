@@ -12,6 +12,7 @@ class ParamListExample(BaseClassPage):
         layout.addWidget(QLabel("ParameterList and DynamicSettingsWidget usage example"))
         layout.addSpacing(10)
         layout.addWidget(QLabel("These tools are useful for creating input UI directly from data structures containing parameters in various types like numbers, text, choices, etc."))
+        layout.addWidget(QLabel("Don't worry about the UI, just define the data structures and let the tools handle the rest."))
         layout.addSpacing(20)
 
         # Normally, you should define a ParameterList object in your Model, not in the Page. 
