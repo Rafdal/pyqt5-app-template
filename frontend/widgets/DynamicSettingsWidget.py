@@ -4,7 +4,10 @@ from PyQt5.QtGui import QFont
 
 from .BasicWidgets import SwitchButton, NumberInput, DropDownMenu, TextInput
 
+from utils.ParamList import ParameterList, TextParam, NumParam, ChoiceParam, BoolParam, ConstParam
+
 class DynamicSettingsWidget(QWidget):
+    paramList: ParameterList
     def __init__(self, paramList=None, title="Dynamic Settings", on_edit=lambda: None, sliderRelease=True):
         super().__init__()
         self.paramList = paramList
@@ -42,7 +45,7 @@ class DynamicSettingsWidget(QWidget):
         self.setLayout(layout)
         self.updateUI(self.paramList, self.title)
 
-    def updateUI(self, paramList, title="Dynamic Settings"):
+    def updateUI(self, paramList: ParameterList, title="Dynamic Settings"):
         self.paramList = paramList
         while self.dynamicLayout.count():
             child = self.dynamicLayout.takeAt(0)

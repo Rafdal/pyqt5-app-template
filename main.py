@@ -6,7 +6,8 @@ print("Running main.py")
 
 from backend.MainModel import MainModel
 from frontend.MainWindow import *
-from frontend.pages.TestPage import TestPage
+from frontend.pages.DemoPage import DemoPage
+from frontend.pages.BlankPage import BlankPage
 
 import faulthandler
 
@@ -19,11 +20,13 @@ if __name__ == '__main__':
 
     # create pages
     pages = [
-        TestPage(),
+        DemoPage(),
+        BlankPage()
     ]
 
     print("Pages created, creating main window")
-    ex = MainWindow(pages=pages, model=mainModel)
+
+    ex = MainWindow(pages=pages, model=mainModel, title="App Title")
 
     faulthandler.enable()
     sys.exit(app.exec_())

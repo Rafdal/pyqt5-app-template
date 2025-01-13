@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QTabWidget
 from PyQt5.QtGui import QIcon
 from frontend.pages.BaseClassPage import BaseClassPage
 
+from frontend.MenuBar import create_menu_bar
 
 # DO NOT TOUCH THIS CODE
 class MainWindow(QMainWindow):
@@ -17,14 +18,14 @@ class MainWindow(QMainWindow):
         - a method on_tab_focus() that is called when the page is focused
         - a method on_tab_unfocus() that is called when the page is unfocused
     """ 
-    def __init__(self, pages, model):
+    def __init__(self, pages, model, title):
         super().__init__()
         self.last_page_index = 0
         self.model = model
+        self.setWindowTitle(title)
         self.initUI(pages)
 
     def initUI(self, pages):
-        self.setWindowTitle('Multiple Serial Plotter')
 
         # center window on screen
         screen = QApplication.primaryScreen()
@@ -56,6 +57,9 @@ class MainWindow(QMainWindow):
                 background-color: "#f5f5f5" 
             }}
         """)
+
+        # add menu bar
+        create_menu_bar(self, self.menuBar(), self.model)
 
         self.setCentralWidget(tab_widget)
         self.show()

@@ -8,8 +8,8 @@ class Button(QPushButton):
 
     def __init__(self, text="Click Me", color="black", background_color = "white", 
                         radius=10,
-                        shadow_color="grey", shadow_radius=9, hover_color="lightblue", 
-                        click_color="grey", padding=6, on_click=None, text_size=14, sizePolicy=None):
+                        shadow_color="grey", shadow_radius=9, hover_color="#e6f9ff", 
+                        click_color="deepskyblue", padding=6, on_click=None, text_size=14, sizePolicy=None):
         super().__init__(text)
         self.radius = radius
         self.padding = padding
