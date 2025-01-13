@@ -105,7 +105,7 @@ class ParameterList():
         self.internal_parameter_list = {}
         
         if (not isinstance(paramList, list)) or not isinstance(paramList[0], ParameterBase):
-            raise ValueError("ParameterList must be initialized with a list of ParameterBase objects")
+            raise ValueError("ParameterList must be initialized with a list of ParameterBase derived objects")
 
         # look for repeated names
         names = [p.name for p in paramList]
@@ -114,7 +114,7 @@ class ParameterList():
         
         for p in paramList:
             if not isinstance(p, ParameterBase):
-                raise ValueError("All parameters must be of type ParameterBase")
+                raise ValueError("All parameters must inherit ParameterBase")
             self.internal_parameter_list[p.name] = p
 
 

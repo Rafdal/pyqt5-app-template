@@ -8,13 +8,13 @@ from utils.ParamList import ParameterList, TextParam, NumParam, ChoiceParam, Boo
 
 class DynamicSettingsWidget(QWidget):
     paramList: ParameterList
-    def __init__(self, paramList=None, title="Dynamic Settings", on_edit=lambda: None, sliderRelease=True):
+    def __init__(self, paramList=None, title="Dynamic Settings", on_edit=lambda: None, submit_on_slider_move=False):
         super().__init__()
         self.paramList = paramList
         self.on_edit = on_edit
         self.title = title
         self.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
-        self.sliderRelease = sliderRelease
+        self.sliderRelease = not submit_on_slider_move
         self.initUI()
 
     def initUI(self):
