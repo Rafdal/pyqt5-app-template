@@ -1,4 +1,4 @@
-# PyQt5-app-template
+# PyQt6-app-template
 Improve code readability, modularity and separation between frontend and backend 
 
 <p align="left">
@@ -24,7 +24,7 @@ class MainModel:
 You can also access to Model methods/attributes from the `initUI` method
 ```python
 # frontend/pages/DemoPage.py
-from PyQt5.QtWidgets import QLabel, QPushButton
+from PyQt6.QtWidgets import QLabel, QPushButton
 from frontend.pages.BaseClassPage import BaseClassPage
 
 class DemoPage(BaseClassPage):                             # Must inherit from BaseClassPage
@@ -52,7 +52,7 @@ class DemoPage(BaseClassPage):                             # Must inherit from B
 ```python
 # main.py
 import sys
-from PyQt5.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication
 
 from backend.MainModel import MainModel
 from frontend.MainWindow import *
@@ -68,5 +68,5 @@ if __name__ == '__main__':
     ]
     ex = MainWindow(pages=pages, model=mainModel, title="App Title")     # Create MainWindow
 
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
 ```

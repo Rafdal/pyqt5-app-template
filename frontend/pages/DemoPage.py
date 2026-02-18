@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QLabel, QVBoxLayout, QHBoxLayout, QPushButton
+from PyQt6.QtWidgets import QLabel, QVBoxLayout, QHBoxLayout, QPushButton
 from frontend.pages.BaseClassPage import BaseClassPage
 from frontend.widgets.BasicWidgets import Button
 

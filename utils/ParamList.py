@@ -117,6 +117,17 @@ class ParameterList():
                 raise ValueError("All parameters must inherit ParameterBase")
             self.internal_parameter_list[p.name] = p
 
+    def toDict(self) -> typing.Dict[str, typing.Dict[str, typing.Any]]:
+        return {name: {"type": param.type, "value": param.value} for name, param in self.internal_parameter_list.items()}
+
+    def fromDict(self, data: typing.Dict[str, typing.Dict[str, typing.Any]]):
+        for name, param_data in data.items():
+            if name not in self.internal_parameter_list:
+                raise KeyError(f"Parameter {name} not found in the ParameterList")
+            param = self.internal_parameter_list[name]
+            if param.type != param_data["type"]:
+                raise ValueError(f"Parameter {name} type mismatch. Expected {param.type}, got {param_data['type']}")
+            param.value = param_data["value"]
 
     def addParameter(self, param: ParameterBase):
         if not isinstance(param, ParameterBase):

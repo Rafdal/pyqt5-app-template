@@ -1,8 +1,8 @@
 # CardWidget, CardListWidget
 
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QGraphicsDropShadowEffect, QStyle, QHBoxLayout, QToolButton, QScrollArea, QFrame, QSizePolicy
-from PyQt5.QtGui import QPixmap, QFont, QColor
-from PyQt5.QtCore import Qt
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QGraphicsDropShadowEffect, QStyle, QHBoxLayout, QToolButton, QScrollArea, QFrame, QSizePolicy
+from PyQt6.QtGui import QPixmap, QFont, QColor
+from PyQt6.QtCore import Qt
 
 
 class CardWidget(QWidget):
@@ -11,7 +11,7 @@ class CardWidget(QWidget):
         
         # Container widget
         self.container = QWidget()
-        self.container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.containerLayout = QHBoxLayout()
         self.containerLayout.setContentsMargins(10, 10, 10, 10)
         self.containerLayout.setSpacing(10)
@@ -29,22 +29,27 @@ class CardWidget(QWidget):
         # Use a standard icon
         iconLabel = QLabel()
         if isinstance(icon, str):
-            pixmap = QPixmap(icon).scaled(iconSize, iconSize, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            pixmap = QPixmap(icon).scaled(
+                iconSize,
+                iconSize,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
         else:
             icon = self.style().standardIcon(icon)
             pixmap = icon.pixmap(iconSize, iconSize)
         iconLabel.setPixmap(pixmap)
-        iconLabel.setAlignment(Qt.AlignCenter)
+        iconLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         # Main Title
         titleLabel = QLabel(title)
-        titleLabel.setFont(QFont('Arial', 16, QFont.Bold))
-        titleLabel.setAlignment(Qt.AlignLeft)
+        titleLabel.setFont(QFont('Arial', 16, QFont.Weight.Bold))
+        titleLabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
         subtitleLabel = QLabel(subtitle)
         
         # Add a vertical layout for the contents (Title and Child widget)
         titlesLayout = QVBoxLayout()
-        titlesLayout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        titlesLayout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         
         # Add widgets to container layout
         titlesLayout.addWidget(titleLabel)
@@ -138,9 +143,9 @@ class CardListWidget(QWidget):
         
         # Container Widget and Layout
         self.containerLayout = QVBoxLayout()
-        self.containerLayout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        self.containerLayout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         wrapperLayout = QVBoxLayout()
-        wrapperLayout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        wrapperLayout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         wrapperLayout.addLayout(self.containerLayout)
         wrapperLayout.addStretch(1)
         self.scrollAreaFrame.setLayout(wrapperLayout)

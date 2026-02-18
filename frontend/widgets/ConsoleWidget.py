@@ -1,6 +1,6 @@
-from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QScrollArea, QHBoxLayout, QTextEdit
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QFont, QTextCursor
+from PyQt6.QtWidgets import QWidget, QLabel, QVBoxLayout, QScrollArea, QHBoxLayout, QTextEdit
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QFont, QTextCursor, QTextOption
 from frontend.widgets.BasicWidgets import TextInput, Button
 
 class ConsoleWidget(QWidget):
@@ -14,12 +14,14 @@ class ConsoleWidget(QWidget):
         # Create the QLabel that will display the console output
         self.consoleOutput = QTextEdit()
         self.consoleOutput.setReadOnly(True)
-        self.consoleOutput.setWordWrapMode(wordWrap)
+        self.consoleOutput.setWordWrapMode(
+            QTextOption.WrapMode.WordWrap if wordWrap else QTextOption.WrapMode.NoWrap
+        )
         self.consoleOutput.setFont(QFont("Monospace", 10))
         self.consoleOutput.setText(defaultText + '\n')
-        self.consoleOutput.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        self.consoleOutput.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         if textSelectable:
-            self.consoleOutput.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            self.consoleOutput.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         
         self.consoleOutput.document().setMaximumBlockCount(maxBlockCount)
         
@@ -28,7 +30,7 @@ class ConsoleWidget(QWidget):
         # Create a QVBoxLayout for this widget and add the QScrollArea to it
         vlayout = QVBoxLayout(self)
         topHLayout = QHBoxLayout()
-        topHLayout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        topHLayout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         topHLayout.addWidget(self.lineCount)
         topHLayout.addStretch(1)
         topHLayout.addWidget(Button("Clear Console", on_click=lambda: self.clearConsole()))

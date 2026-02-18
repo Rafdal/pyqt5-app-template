@@ -1,76 +1,90 @@
-from PyQt5.QtWidgets import QLabel, QHBoxLayout, QVBoxLayout, QMessageBox, QWidget, QScrollArea, QSizePolicy
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QFont
+from PyQt6.QtWidgets import QLabel, QHBoxLayout, QVBoxLayout, QMessageBox, QWidget, QScrollArea, QSizePolicy
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QFont
+from typing import Optional
 
 from .BasicWidgets import SwitchButton, NumberInput, DropDownMenu, TextInput
 
 from utils.ParamList import ParameterList, TextParam, NumParam, ChoiceParam, BoolParam, ConstParam
 
 class DynamicSettingsWidget(QWidget):
-    paramList: ParameterList
-    def __init__(self, paramList=None, title="Dynamic Settings", on_edit=lambda: None, submit_on_slider_move=False):
+    paramList: Optional[ParameterList]
+    def __init__(self, paramList: Optional[ParameterList]=None, title="Dynamic Settings", on_edit=lambda: None, submit_on_slider_move=False):
         super().__init__()
         self.paramList = paramList
         self.on_edit = on_edit
         self.title = title
-        self.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
+        self.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
         self.sliderRelease = not submit_on_slider_move
         self.initUI()
 
     def initUI(self):
         self.dynamicLayout = QVBoxLayout()
-        self.dynamicLayout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        self.dynamicLayout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         self.dynamicLayout.setContentsMargins(0, 0, 0, 0)
         self.dynamicLayout.setSpacing(0)
 
         hlayout = QHBoxLayout()
-        hlayout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        hlayout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         hlayout.addLayout(self.dynamicLayout)
 
         # Create a new widget for the scroll area
         scroll_widget = QWidget()
         scroll_widget.setLayout(hlayout)
-        scroll_widget.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
+        scroll_widget.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
 
         # Create a scroll area and set its widget
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setWidget(scroll_widget)
         self.scroll_area.setMinimumHeight(250)
-        self.scroll_area.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
-        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scroll_area.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         layout = QVBoxLayout()
         layout.addWidget(self.scroll_area)
         self.setLayout(layout)
         self.updateUI(self.paramList, self.title)
 
-    def updateUI(self, paramList: ParameterList, title="Dynamic Settings"):
+    def updateUI(self, paramList: Optional[ParameterList], title="Dynamic Settings"):
         self.paramList = paramList
         while self.dynamicLayout.count():
             child = self.dynamicLayout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
-            if child.layout():
-                while child.layout().count():
-                    grandchild = child.layout().takeAt(0)
-                    if grandchild.widget():
-                        grandchild.widget().deleteLater()
-                    if grandchild.layout():
-                        while grandchild.layout().count():
-                            grandgrandchild = grandchild.layout().takeAt(0)
-                            if grandgrandchild.widget():
-                                grandgrandchild.widget().deleteLater()
+            if child is None:
+                continue
+            child_widget = child.widget()
+            if child_widget is not None:
+                child_widget.deleteLater()
+            child_layout = child.layout()
+            if child_layout is not None:
+                while child_layout.count():
+                    grandchild = child_layout.takeAt(0)
+                    if grandchild is None:
+                        continue
+                    grandchild_widget = grandchild.widget()
+                    if grandchild_widget is not None:
+                        grandchild_widget.deleteLater()
+                    grandchild_layout = grandchild.layout()
+                    if grandchild_layout is not None:
+                        while grandchild_layout.count():
+                            grandgrandchild = grandchild_layout.takeAt(0)
+                            if grandgrandchild is None:
+                                continue
+                            grandgrandchild_widget = grandgrandchild.widget()
+                            if grandgrandchild_widget is not None:
+                                grandgrandchild_widget.deleteLater()
         
-        titleLabel = QLabel(title)
-        font = QFont("Arial", 14, QFont.Bold)
-        titleLabel.setFont(font)
-        self.dynamicLayout.addWidget(titleLabel)
+        max_widget_width = 200
+        if title is not None:
+            titleLabel = QLabel(title)
+            font = QFont("Arial", 14, QFont.Weight.Bold)
+            titleLabel.setFont(font)
+            self.dynamicLayout.addWidget(titleLabel)
+            max_widget_width = titleLabel.sizeHint().width() + titleLabel.frameWidth() * 2
 
         if self.paramList is None:
             return
 
-        max_widget_width = titleLabel.sizeHint().width() + titleLabel.frameWidth() * 2
         for param in self.paramList:
             key = param.name
             
@@ -106,18 +120,24 @@ class DynamicSettingsWidget(QWidget):
                 raise ValueError(f"Parameter type '{param.type}' not recognized")
             
             current_width = settingWidget.sizeHint().width()
-            if hasattr(settingWidget, "frameWidth"):
-                current_width += settingWidget.frameWidth() * 2
+            frame_width_fn = getattr(settingWidget, "frameWidth", None)
+            if callable(frame_width_fn):
+                frame_width = frame_width_fn()
+                if isinstance(frame_width, int):
+                    current_width += frame_width * 2
             max_widget_width = max(max_widget_width, current_width)
             self.dynamicLayout.addWidget(settingWidget)
 
         # Resize the scroll area to fit the new content
         margins = self.dynamicLayout.contentsMargins().left() + self.dynamicLayout.contentsMargins().right()
         frameWidth = self.scroll_area.frameWidth()
-        barWidth = self.scroll_area.verticalScrollBar().sizeHint().width()
-        scroll_width = int(max_widget_width*1.1) + 2*frameWidth + barWidth + margins
+        scrollbar = self.scroll_area.verticalScrollBar()
+        barWidth = scrollbar.sizeHint().width() if scrollbar is not None else 0
+        scroll_width = int(max_widget_width*1.2) + 2*frameWidth + barWidth + margins
         self.scroll_area.setMinimumWidth(scroll_width)
 
     def on_param_set(self, key, value):
+        if self.paramList is None:
+            return
         self.paramList[key] = value
         self.on_edit()

@@ -1,6 +1,6 @@
-from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QGraphicsDropShadowEffect, QSizePolicy, QLabel, QLineEdit, QWidget, QSlider, QPushButton, QMenu, QAction
-from PyQt5.QtGui import QColor, QRegExpValidator
-from PyQt5.QtCore import Qt, QRegExp, pyqtSignal
+from PyQt6.QtWidgets import QVBoxLayout, QHBoxLayout, QGraphicsDropShadowEffect, QSizePolicy, QLabel, QLineEdit, QWidget, QSlider, QPushButton, QMenu
+from PyQt6.QtGui import QColor, QAction, QRegularExpressionValidator
+from PyQt6.QtCore import Qt, QRegularExpression, pyqtSignal
 import numpy as np
 
 # Button class
@@ -106,14 +106,14 @@ class TextInput(QWidget):
             layout = QVBoxLayout()
         else:
             raise ValueError("Invalid layout parameter. Use 'h' for horizontal or 'v' for vertical layout.")
-        layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
 
         self.label = QLabel(label)
         self.textbox = QLineEdit(self)
         self.textbox.setPlaceholderText(placeholder)
         self.textbox.setText(default)
         if regex:
-            validator = QRegExpValidator(QRegExp(regex))
+            validator = QRegularExpressionValidator(QRegularExpression(regex))
             self.textbox.setValidator(validator)
 
         layout.addWidget(self.label)
@@ -142,8 +142,8 @@ class Slider(QWidget):
 
         layout = QVBoxLayout()
         hlayout = QHBoxLayout()
-        hlayout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
-        layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        hlayout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
 
         # Set the slider values
         self.interval = interval
@@ -163,7 +163,7 @@ class Slider(QWidget):
         self.displayValue = QLabel(" = " + str(round(defaultVal, self.decimals)) )
 
         # Create the slider
-        self.slider = QSlider(Qt.Horizontal)
+        self.slider = QSlider(Qt.Orientation.Horizontal)
         if self.integer:
             self.slider.setMinimum(interval[0])
             self.slider.setMaximum(interval[1])
@@ -220,8 +220,8 @@ class NumberInput(QWidget):
         super().__init__()
         layout = QVBoxLayout()
         hlayout = QHBoxLayout()
-        layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
-        hlayout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        hlayout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
 
         # Set the value range
         self.interval = interval
@@ -240,13 +240,13 @@ class NumberInput(QWidget):
         self.label = QLabel(label + " = ")
         self.textbox = QLineEdit()
         if self.integer:
-            self.textbox.setValidator(QRegExpValidator(QRegExp("^$|[+-]?[0-9]+")))
+            self.textbox.setValidator(QRegularExpressionValidator(QRegularExpression("^$|[+-]?[0-9]+")))
         else:
-            self.textbox.setValidator(QRegExpValidator(QRegExp("^$|[+-]?[0-9]+(?:\\.[0-9]+)?")))
+            self.textbox.setValidator(QRegularExpressionValidator(QRegularExpression("^$|[+-]?[0-9]+(?:\\.[0-9]+)?")))
         self.textbox.setText(str(round(self.current_value, self.decimals)))
 
         # Create the slider
-        self.slider = QSlider(Qt.Horizontal)
+        self.slider = QSlider(Qt.Orientation.Horizontal)
         if self.integer:
             self.slider.setMinimum(interval[0])
             self.slider.setMaximum(interval[1])
@@ -376,20 +376,20 @@ class DropDownMenu(Button):
         self.menu = QMenu(self)
         self.setMenu(self.menu)
         self.set_options(options, firstSelected)
-        self.menu.setStyleSheet("""
-            QMenu::item:selected {
-                background-color: lightblue;
-                color: black;
-            }
-            QMenu::item {
-                background-color: white;
-                color: black;
-            }
-        """)
+        # self.menu.setStyleSheet("""
+        #     QMenu::item:selected {
+        #         background-color: lightblue;
+        #         color: black;
+        #     }
+        #     QMenu::item {
+        #         background-color: white;
+        #         color: black;
+        #     }
+        # """)
 
 
     def keyPressEvent(self, event):
-        if event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return:
+        if event.key() == Qt.Key.Key_Enter or event.key() == Qt.Key.Key_Return:
             event.accept()
         else:
             super().keyPressEvent(event)

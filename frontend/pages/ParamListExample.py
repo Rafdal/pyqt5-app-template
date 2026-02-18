@@ -1,6 +1,6 @@
 from frontend.pages.BaseClassPage import BaseClassPage
 
-from PyQt5.QtWidgets import QLabel
+from PyQt6.QtWidgets import QLabel
 
 from utils.ParamList import ParameterList, NumParam, BoolParam, TextParam, ChoiceParam, ConstParam
 from frontend.widgets.DynamicSettingsWidget import DynamicSettingsWidget

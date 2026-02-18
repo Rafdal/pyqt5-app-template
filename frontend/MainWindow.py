@@ -1,6 +1,6 @@
 # MainWindow.py
-from PyQt5.QtWidgets import QApplication, QMainWindow, QTabWidget
-from PyQt5.QtGui import QIcon
+from PyQt6.QtWidgets import QApplication, QMainWindow, QTabWidget, QVBoxLayout
+from PyQt6.QtGui import QIcon
 from frontend.pages.BaseClassPage import BaseClassPage
 
 from frontend.MenuBar import create_menu_bar
@@ -29,6 +29,8 @@ class MainWindow(QMainWindow):
 
         # center window on screen
         screen = QApplication.primaryScreen()
+        if screen is None:
+            return
         rect = screen.availableGeometry()
         rw, rh, sw, sh = rect.width(), rect.height(), 2*self.width(), int(1.5*self.height())
         self.setMinimumSize(400, 300)
@@ -46,20 +48,20 @@ class MainWindow(QMainWindow):
             if not isinstance(page, BaseClassPage):
                 raise Exception("All pages must be subclasses of BaseClassPage")
             page.set_model(self.model)
-            page.initUI(page.layout)
-            page.setLayout(page.layout)
+            page_layout = getattr(page, "layout", None)
+            if not isinstance(page_layout, QVBoxLayout):
+                raise Exception("All pages must define a QVBoxLayout in page.layout")
+            page.initUI(page_layout)
+            page.setLayout(page_layout)
             tab_widget.addTab(page, page.title)
 
         # set tab change event
         tab_widget.currentChanged.connect(self.tab_changed)
-        tab_widget.setStyleSheet(f"""
-            QWidget {{ 
-                background-color: "#f5f5f5" 
-            }}
-        """)
 
         # add menu bar
-        create_menu_bar(self, self.menuBar(), self.model)
+        menu_bar = self.menuBar()
+        if menu_bar is not None:
+            create_menu_bar(self, menu_bar, self.model)
 
         self.setCentralWidget(tab_widget)
         self.show()
@@ -67,10 +69,12 @@ class MainWindow(QMainWindow):
 
     def tab_changed(self, index):
         tab_widget = self.centralWidget()
+        if not isinstance(tab_widget, QTabWidget):
+            return
 
         # unfocus last active tab
         last_page = tab_widget.widget(self.last_page_index)
-        if hasattr(last_page, 'on_tab_unfocus'): 
+        if isinstance(last_page, BaseClassPage) and hasattr(last_page, 'on_tab_unfocus'):
             print(f"Page {self.last_page_index} '{last_page.title}' unfocused")
             last_page.on_tab_unfocus()
 
@@ -79,6 +83,6 @@ class MainWindow(QMainWindow):
         self.last_page_index = index
 
         # check if method exists
-        if hasattr(current_page, 'on_tab_focus'): 
+        if isinstance(current_page, BaseClassPage) and hasattr(current_page, 'on_tab_focus'):
             print(f"Page {index} '{current_page.title}' focused")
             current_page.on_tab_focus()
