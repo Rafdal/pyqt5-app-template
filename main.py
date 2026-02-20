@@ -19,14 +19,14 @@ import signal
 from PyQt6.QtCore import QTimer
 
 if __name__ == '__main__':
-    # ... after creating QApplication(...)
+    app = QApplication(sys.argv)
+    app.setWindowIcon(QIcon('frontend/assets/icon.png'))
+
+    # Handle Ctrl+C in terminal
     signal.signal(signal.SIGINT, lambda *_: app.quit())
     sigint_timer = QTimer()
     sigint_timer.timeout.connect(lambda: None)
     sigint_timer.start(200)
-
-    app = QApplication(sys.argv)
-    app.setWindowIcon(QIcon('frontend/assets/icon.png'))
 
     # create a Data Model
     mainModel = MainModel(app)

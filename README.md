@@ -1,4 +1,5 @@
 # PyQt6-app-template
+
 Improve code readability, modularity and separation between frontend and backend 
 
 <p align="left">
