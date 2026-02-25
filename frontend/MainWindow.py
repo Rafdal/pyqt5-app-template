@@ -1,9 +1,8 @@
 # MainWindow.py
 from PyQt6.QtWidgets import QApplication, QMainWindow, QTabWidget, QVBoxLayout
-from PyQt6.QtGui import QIcon
 from frontend.pages.BaseClassPage import BaseClassPage
 
-from frontend.MenuBar import create_menu_bar
+from frontend.MenuBar import CreateMenuBar
 
 # DO NOT TOUCH THIS CODE
 class MainWindow(QMainWindow):
@@ -61,7 +60,7 @@ class MainWindow(QMainWindow):
         # add menu bar
         menu_bar = self.menuBar()
         if menu_bar is not None:
-            create_menu_bar(self, menu_bar, self.model)
+            self.menuBarData = CreateMenuBar(self, menu_bar, self.model)
 
         self.setCentralWidget(tab_widget)
         self.show()

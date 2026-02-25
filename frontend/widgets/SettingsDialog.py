@@ -1,25 +1,24 @@
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton, QApplication
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 
 from backend.Settings import Settings
 from frontend.widgets.DynamicSettingsWidget import DynamicSettingsWidget
 
-from qt_material import apply_stylesheet
-
 class SettingsDialog(QDialog):
-    def __init__(self, title: str, settings: Settings, app:QApplication, on_submit=lambda: None):
+    on_submit = pyqtSignal()
+
+    def __init__(self, title: str, settings: Settings):
         super().__init__()
         self.setWindowTitle(title)
         self.setModal(True)
         self.setMinimumWidth(400)
-        self.on_submit = on_submit
-        self.app = app
         self.settings = settings
         
         layout = QVBoxLayout()
         self.setLayout(layout)
 
-        self.dynamicSettingsWidget = DynamicSettingsWidget(settings, on_edit=self.on_edit, title=None)
+        self.dynamicSettingsWidget = DynamicSettingsWidget(settings)
+        self.dynamicSettingsWidget.on_edit.connect(self.on_edit)
         layout.addWidget(self.dynamicSettingsWidget)
 
         button = QPushButton("Save")
@@ -31,14 +30,14 @@ class SettingsDialog(QDialog):
         layout.addWidget(button)
 
     def on_edit(self):
-        apply_stylesheet(self.app, theme=self.settings['theme'])
+        self.settings.apply()
 
     def exec(self) -> int:
         return super().exec()
 
     def submit(self):
         self.settings.save()
-        self.on_submit()
+        self.on_submit.emit()
         super().accept()
 
     def reject(self) -> None:

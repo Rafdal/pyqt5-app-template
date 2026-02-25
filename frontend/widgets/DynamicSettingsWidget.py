@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QLabel, QHBoxLayout, QVBoxLayout, QMessageBox, QWidget, QScrollArea, QSizePolicy
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
 from typing import Optional
 
@@ -9,10 +9,13 @@ from utils.ParamList import ParameterList, TextParam, NumParam, ChoiceParam, Boo
 
 class DynamicSettingsWidget(QWidget):
     paramList: Optional[ParameterList]
-    def __init__(self, paramList: Optional[ParameterList]=None, title="Dynamic Settings", on_edit=lambda: None, submit_on_slider_move=False):
+    on_edit = pyqtSignal()
+
+    def __init__(self, paramList: Optional[ParameterList]=None, title=None, submit_on_slider_move=False, on_edit=None):
         super().__init__()
         self.paramList = paramList
-        self.on_edit = on_edit
+        if on_edit is not None:
+            self.on_edit.connect(on_edit)
         self.title = title
         self.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
         self.sliderRelease = not submit_on_slider_move
@@ -89,13 +92,16 @@ class DynamicSettingsWidget(QWidget):
             key = param.name
             
             settingWidget = None
-            if param.type == "Boolean":
+            if not param.render:
+                continue
+            elif param.type == "Boolean":
                 settingWidget = SwitchButton(param.text + " On", param.text + " Off", 
                                       on_click=lambda v, k=key: self.on_param_set(k, v), value=param.value)
 
             elif param.type == "Number":
                 settingWidget = NumberInput(param.text, interval=param.interval, step=param.step, default=param.value, 
-                                     on_change= lambda v, k=key: self.on_param_set(k, v), sliderRelease=self.sliderRelease)
+                                    sliderRelease=self.sliderRelease)
+                settingWidget.on_change.connect(lambda v, k=key: self.on_param_set(k, v))
             
             elif param.type == "Choice":
                 opt_dict = {}
@@ -111,9 +117,9 @@ class DynamicSettingsWidget(QWidget):
 
             elif param.type == "text":
                 settingWidget = TextInput(param.text, 
-                                          on_change=lambda v, k=key: self.on_param_set(k, v),
                                           default=param.value,
                                           regex=param.regex)
+                settingWidget.on_change.connect(lambda v, k=key: self.on_param_set(k, v))
             elif param.type == "const":
                 settingWidget = QLabel(param.text + ": " + str(param.value))
             else:
@@ -140,4 +146,4 @@ class DynamicSettingsWidget(QWidget):
         if self.paramList is None:
             return
         self.paramList[key] = value
-        self.on_edit()
+        self.on_edit.emit()

@@ -1,50 +1,41 @@
-from PyQt6.QtWidgets import QMainWindow, QMenuBar, QDialog
-from PyQt6.QtGui import QIcon, QAction, QFont
-from PyQt6.QtWidgets import QSizePolicy
-
-from qt_material import list_themes, apply_stylesheet
+from PyQt6.QtWidgets import QMainWindow, QMenuBar, QLabel, QPushButton
+from PyQt6.QtGui import QIcon, QAction
+from PyQt6.QtCore import Qt
 
 from backend.MainModel import MainModel
 from frontend.widgets.SettingsDialog import SettingsDialog
+from frontend.widgets.IconButtons import SwitchThemeButton
 
-def create_menu_bar(main: QMainWindow, menuBar: QMenuBar, model: MainModel):
-    fileMenu = menuBar.addMenu('&File')
-    if fileMenu is None:
-        return
-    
-    settingsAction = QAction(QIcon('settings.png'), '&Settings', main)
-    dialog = SettingsDialog(title="Settings", settings=model.settings, app=model.app)
-    settingsAction.triggered.connect(lambda: dialog.exec())
-    fileMenu.addAction(settingsAction)
+class CreateMenuBar():
+    def __init__(self, main: QMainWindow, menuBar: QMenuBar, model: MainModel):
+        menuBar.setNativeMenuBar(False)
 
-    exitAction = QAction(QIcon('exit.png'), '&Exit', main)
-    exitAction.setShortcut('Ctrl+Q')
-    exitAction.setStatusTip('Exit application')
-    exitAction.triggered.connect(main.close)
+        fileMenu = menuBar.addMenu('&File')
+        if fileMenu is None:
+            return
+        
+        self.model = model
+        
+        settingsAction = QAction(QIcon('settings.png'), '&Settings', main)
+        dialog = SettingsDialog(title="Settings", settings=model.settings)
+        settingsAction.triggered.connect(lambda: dialog.exec())
+        fileMenu.addAction(settingsAction)
 
-    fileMenu.addAction(exitAction)
+        exitAction = QAction(QIcon('exit.png'), '&Exit', main)
+        exitAction.setShortcut('Ctrl+Q')
+        exitAction.setStatusTip('Exit application')
+        exitAction.triggered.connect(main.close)
 
+        fileMenu.addAction(exitAction)
 
-    # Dark Theme menu
-    darkThemeMenu = menuBar.addMenu('&Dark Theme')
-    if darkThemeMenu is None:
-        return
-    themes = list_themes()
-    for theme in themes:
-        if not theme.startswith('dark'):
-            continue
-        themeAction = QAction(theme, main)
-        themeAction.triggered.connect(lambda _, t=theme: apply_stylesheet(main, theme=t))
-        darkThemeMenu.addAction(themeAction)
+        # menuBar.addSeparator()
+        self.themeBtn = SwitchThemeButton()
+        self.themeBtn.update(selected=self.model.settings["dark_mode"])
+        self.themeBtn.on_click.connect(self.toggle_theme)
 
+        menuBar.setCornerWidget(self.themeBtn, Qt.Corner.TopRightCorner)
 
-    # Light Theme menu
-    lightThemeMenu = menuBar.addMenu('&Light Theme')
-    if lightThemeMenu is None:
-        return
-    for theme in themes:
-        if not theme.startswith('light'):
-            continue
-        themeAction = QAction(theme, main)
-        themeAction.triggered.connect(lambda _, t=theme: apply_stylesheet(main, theme=t))
-        lightThemeMenu.addAction(themeAction)
+    def toggle_theme(self, selected):
+        self.model.settings["dark_mode"] = selected
+        self.model.settings.apply()
+        self.model.settings.save()

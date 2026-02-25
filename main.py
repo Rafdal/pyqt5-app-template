@@ -11,8 +11,6 @@ from frontend.pages.BlankPage import *
 from frontend.pages.ParamListExample import *
 from frontend.pages.DefaultWidgetsPage import *
 
-from qt_material import apply_stylesheet
-
 import faulthandler
 
 import signal
@@ -40,7 +38,6 @@ if __name__ == '__main__':
     ]
 
     print("Pages created, creating main window")
-    apply_stylesheet(app, theme=mainModel.settings['theme'])
 
     ex = MainWindow(pages=pages, model=mainModel, title="App Title")
 

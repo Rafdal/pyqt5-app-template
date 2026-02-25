@@ -25,24 +25,36 @@ import typing
 # import numpy as np
 
 class ParameterBase():
-    def __init__(self, name="parameter", text=""):
+    def __init__(self, name="parameter", text="", *args, **kwargs):
         self.internal_name = name
         self.text = text
+        if "render" in kwargs:
+            self.render = kwargs["render"]
+        else:
+            self.render = True
 
     @property
     def name(self):
         return self.internal_name
 
 class ConstParam(ParameterBase):
-    def __init__(self, name="const", value="CONST VAL", text="Constant"):
-        super().__init__(name, text)
+    def __init__(self, name="const", value="CONST VAL", text="Constant", *args, **kwargs):
+        super().__init__(name, text, *args, **kwargs)
         self.type = "const"
+        self.value = value
+
+    @property
+    def data(self):
+        return self.value
+    
+    @data.setter
+    def data(self, value):
         self.value = value
 
 class TextParam(ParameterBase):
     """ Text parameter with a string"""
-    def __init__(self, name="txt", value="", text="text parameter", regex="^$|^[a-zA-Z0-9\\*\\+\\-\\^\\/\\(\\)\\s\\.]*", default=None):
-        super().__init__(name, text)
+    def __init__(self, name="txt", value="", text="text parameter", regex="^$|^[a-zA-Z0-9\\*\\+\\-\\^\\/\\(\\)\\s\\.]*", default=None, *args, **kwargs):
+        super().__init__(name, text, *args, **kwargs)
         self.type = "text"
         self.regex = regex
         if default is not None:
@@ -50,11 +62,19 @@ class TextParam(ParameterBase):
         else:
             self.value = value
 
+    @property
+    def data(self):
+        return self.value
+
+    @data.setter
+    def data(self, value):
+        self.value = value
+
 
 class NumParam(ParameterBase):
     """ Numerical parameter with interval and step"""
-    def __init__(self, name="x", interval=(0, 100), step=1, value=0, text="numerical parameter", default=None):
-        super().__init__(name, text)
+    def __init__(self, name="x", interval=(0, 100), step=1, value=0, text="numerical parameter", default=None, *args, **kwargs):
+        super().__init__(name, text, *args, **kwargs)
         self.type = "Number"
         self.interval = interval
         self.step = step
@@ -63,15 +83,33 @@ class NumParam(ParameterBase):
         else:
             self.value = value
 
-    def setInterval(self, a, b):
-        if a >= b:
-            raise ValueError("Invalid interval")
-        self.interval = (a, b)
+    @property
+    def data(self):
+        return {"value": self.value, "interval": self.interval, "step": self.step}
+    
+    @data.setter
+    def data(self, data):
+        if not isinstance(data, dict):
+            raise ValueError("NumParam data must be a dict")
+        if "value" not in data or "interval" not in data or "step" not in data:
+            raise ValueError("NumParam data must have keys 'value', 'interval' and 'step'")
+        if not isinstance(data["value"], (int, float)):
+            raise ValueError("NumParam value must be a number")
+        if not isinstance(data["interval"], (tuple, list)) or len(data["interval"]) != 2:
+            raise ValueError("NumParam interval must be a tuple with two elements")
+        if data["interval"][0] >= data["interval"][1]:
+            raise ValueError("NumParam interval must have the first element smaller than the second")
+        if not isinstance(data["step"], (int, float)):
+            raise ValueError("NumParam step must be a number")
+        self.value = data["value"]
+        self.interval = data["interval"]
+        self.step = data["step"]
+    
 
 class ChoiceParam(ParameterBase):
     """ Choice parameter with a list of choices"""
-    def __init__(self, name: str, options: typing.List[str] = ["None"], value="None", text="choice parameter", default=None):
-        super().__init__(name, text)
+    def __init__(self, name: str, options: typing.List[str] = ["None"], value="None", text="choice parameter", default=None, *args, **kwargs):
+        super().__init__(name, text, *args, **kwargs)
         self.type = "Choice"
         self.options = options
         if default is not None:
@@ -79,24 +117,35 @@ class ChoiceParam(ParameterBase):
         else:
             self.value = value
 
-    def setOptions(self, options: typing.List[str]):
-        self.options = options
-
-    def setValue(self, value: str):
-        if value not in self.options:
-            raise ValueError(f"ChoiceParam::setValue Option \'{value}\' not found in the list of choices. You have to set the options first.")
-        self.value = value
+    @property
+    def data(self):
+        return self.value
+    @data.setter
+    def data(self, data):
+        if data not in self.options:
+            raise ValueError(f"ChoiceParam value must be one of the options: {self.options}")
+        self.value = data
 
 
 class BoolParam(ParameterBase):
     """ Boolean parameter"""
-    def __init__(self, name="z", value=False, text="boolean parameter", default=None):
-        super().__init__(name, text)
+    def __init__(self, name="z", value=False, text="boolean parameter", default=None, *args, **kwargs):
+        super().__init__(name, text, *args, **kwargs)
         self.type = "Boolean"
         if default is not None:
             self.value = default
         else:
             self.value = value
+
+    @property
+    def data(self):
+        return self.value
+    
+    @data.setter
+    def data(self, value):
+        if not isinstance(value, bool):
+            raise ValueError("BoolParam value must be a boolean")
+        self.value = value
 
 
 class ParameterList():
@@ -117,8 +166,9 @@ class ParameterList():
                 raise ValueError("All parameters must inherit ParameterBase")
             self.internal_parameter_list[p.name] = p
 
+
     def toDict(self) -> typing.Dict[str, typing.Dict[str, typing.Any]]:
-        return {name: {"type": param.type, "value": param.value} for name, param in self.internal_parameter_list.items()}
+        return {name: {"type": param.type, "data": param.data} for name, param in self.internal_parameter_list.items()}
 
     def fromDict(self, data: typing.Dict[str, typing.Dict[str, typing.Any]]):
         for name, param_data in data.items():
@@ -127,7 +177,8 @@ class ParameterList():
             param = self.internal_parameter_list[name]
             if param.type != param_data["type"]:
                 raise ValueError(f"Parameter {name} type mismatch. Expected {param.type}, got {param_data['type']}")
-            param.value = param_data["value"]
+            param.data = param_data["data"]
+
 
     def addParameter(self, param: ParameterBase):
         if not isinstance(param, ParameterBase):

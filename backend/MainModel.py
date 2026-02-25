@@ -6,11 +6,12 @@ from PyQt6.QtWidgets import QApplication
 class MainModel:
     # Model attributes
     count = 0
-    settings = Settings()
 
     def __init__(self, app: QApplication) -> None:
         self.app = app
+        self.settings = Settings(app)
         self.settings.load()
+        self.settings.apply()
 
     # Model methods
     def increment_count(self):

@@ -1,7 +1,10 @@
 from PyQt6.QtWidgets import QVBoxLayout, QHBoxLayout, QGraphicsDropShadowEffect, QSizePolicy, QLabel, QLineEdit, QWidget, QSlider, QPushButton, QMenu
 from PyQt6.QtGui import QColor, QAction, QRegularExpressionValidator
 from PyQt6.QtCore import Qt, QRegularExpression, pyqtSignal
+from PyQt6.QtWidgets import QToolButton
 import numpy as np
+
+import typing as T
 
 # Button class
 class Button(QPushButton):
@@ -97,7 +100,9 @@ class SwitchButton(Button):
 
 # Text Input class
 class TextInput(QWidget):
-    def __init__(self, label="Input", placeholder="Type Here", default="", on_change=lambda text: (), regex="^$|[a-zA-Z0-9\\-\\.]*", layout='v', callOnEnter=True):
+    on_change = pyqtSignal(str)
+
+    def __init__(self, label="Input", placeholder="Type Here", default="", regex="^$|[a-zA-Z0-9\\-\\.]*", layout='v', callOnEnter=True):
         super().__init__()
 
         if layout == 'h':
@@ -126,18 +131,17 @@ class TextInput(QWidget):
         else:
             self.textbox.textEdited.connect(self.on_change_callback)
 
-        self.on_change = on_change
-
     def text(self):
         return self.textbox.text()
 
     def on_change_callback(self):
-        self.on_change(self.textbox.text())
-
+        self.on_change.emit(self.textbox.text())
 
 # Horizontal Slider Class
 class Slider(QWidget):
-    def __init__(self, label="Slider", interval=(0, 100), step=1, defaultVal=0, on_change=lambda value: None, minWidth=100):
+    on_change = pyqtSignal(object)
+
+    def __init__(self, label="Slider", interval=(0, 100), step=1, defaultVal=0, minWidth=100):
         super().__init__()
 
         layout = QVBoxLayout()
@@ -170,6 +174,7 @@ class Slider(QWidget):
         else:
             self.slider.setMinimum(0)
             self.slider.setMaximum(self.max_index)
+
         self.slider.setValue(self.value_to_slider_pos(self.current_value))
         self.slider.setSingleStep(1)
         self.slider.setMinimumWidth(minWidth)
@@ -185,7 +190,6 @@ class Slider(QWidget):
 
         self.slider.valueChanged.connect(self.on_change_callback)
 
-        self.on_change = on_change
 
     def value_to_slider_pos(self, value):
         if self.integer:
@@ -193,7 +197,7 @@ class Slider(QWidget):
         pos = ((value - self.start) / self.delta) * self.max_index
         return int(np.clip(pos, 0, self.max_index))
 
-    def slider_pos_to_value(self, pos):
+    def slider_pos_to_value(self, pos: T.Union[int, float]):
         if self.integer:
             return int(pos)
         return self.start + (pos / self.max_index) * self.delta
@@ -201,10 +205,10 @@ class Slider(QWidget):
     def value(self):
         return self.slider_pos_to_value(self.slider.value())
 
-    def on_change_callback(self, pos):
+    def on_change_callback(self, pos: T.Union[int, float]):
         value = self.slider_pos_to_value(pos)
         self.displayValue.setText(" = " + self.value_to_text(value) )
-        self.on_change(value)
+        self.on_change.emit(value)
 
     def value_to_text(self, value):
         if self.integer:
@@ -216,7 +220,9 @@ class Slider(QWidget):
 
 # Number Input class
 class NumberInput(QWidget):
-    def __init__(self, label="Number", interval=(0, 100), step=1, default=0, on_change=lambda value: None, minWidth=100, callOnEnter=True, sliderRelease=True):
+    on_change = pyqtSignal(object)
+
+    def __init__(self, label="Number", interval=(0, 100), step=1, default=0, minWidth=100, callOnEnter=True, sliderRelease=True):
         super().__init__()
         layout = QVBoxLayout()
         hlayout = QHBoxLayout()
@@ -274,8 +280,6 @@ class NumberInput(QWidget):
         else:
             self.slider.valueChanged.connect(self.on_slider_change)
 
-        self.on_change = on_change
-
     def on_slider_change(self):
         pos = self.slider.value()
         self.current_value = self.slider_pos_to_value(pos)
@@ -283,9 +287,9 @@ class NumberInput(QWidget):
         self.textbox.setText(self.value_to_text(self.current_value))
         self.textbox.blockSignals(False)
         if self.integer:
-            self.on_change(int(self.current_value))
+            self.on_change.emit(int(self.current_value))
         else:
-            self.on_change(self.current_value)
+            self.on_change.emit(self.current_value)
 
     def on_text_change(self):
         text = self.textbox.text()
@@ -323,9 +327,9 @@ class NumberInput(QWidget):
         self.slider.blockSignals(False)
         
         if self.integer:
-            self.on_change(int(self.current_value))
+            self.on_change.emit(int(self.current_value))
         else:
-            self.on_change(self.current_value)
+            self.on_change.emit(self.current_value)
 
 
     def value(self):
