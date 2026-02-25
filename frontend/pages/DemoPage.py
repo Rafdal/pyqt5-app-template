@@ -2,8 +2,8 @@ from PyQt6.QtWidgets import QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QTool
 from frontend.pages.BaseClassPage import BaseClassPage
 from PyQt6.QtGui import QIcon, QColor
 
-from frontend.widgets.BasicWidgets import Button, Slider, NumberInput
-from frontend.widgets.IconButtons import SwitchThemeButton
+from frontend.widgets.BasicWidgets import Button, Slider, IntNumberInput
+from frontend.widgets.IconButtons import ToolButton
 
 class DemoPage(BaseClassPage):
     title = "Demo Page"
@@ -24,9 +24,9 @@ class DemoPage(BaseClassPage):
         slider = Slider("Demo Slider", interval=(0, 100), step=1, defaultVal=50)
         slider.on_change.connect(self.on_slider_change)
 
-        num_input = NumberInput("Number Input", interval=(0, 100), step=1, default=50)
+        num_input = IntNumberInput("Number Input", interval=(0, 100), step=1, default=50)
         num_input.on_change.connect(self.on_slider_change)
-
+        # num_input.on_settings_change.connect(lambda settings: print(f"Number Input settings changed: {settings}"))
         
         # Set layouts
         hlayout.addWidget(button)

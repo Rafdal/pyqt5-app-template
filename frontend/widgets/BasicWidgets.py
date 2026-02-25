@@ -1,10 +1,12 @@
 from PyQt6.QtWidgets import QVBoxLayout, QHBoxLayout, QGraphicsDropShadowEffect, QSizePolicy, QLabel, QLineEdit, QWidget, QSlider, QPushButton, QMenu
 from PyQt6.QtGui import QColor, QAction, QRegularExpressionValidator
 from PyQt6.QtCore import Qt, QRegularExpression, pyqtSignal
-from PyQt6.QtWidgets import QToolButton
+from PyQt6.QtWidgets import QToolButton, QCheckBox
 import numpy as np
 
 import typing as T
+
+from frontend.widgets.IconButtons import ToolButton
 
 # Button class
 class Button(QPushButton):
@@ -133,6 +135,9 @@ class TextInput(QWidget):
 
     def text(self):
         return self.textbox.text()
+    
+    def setText(self, text):
+        self.textbox.setText(text)
 
     def on_change_callback(self):
         self.on_change.emit(self.textbox.text())
@@ -219,7 +224,176 @@ class Slider(QWidget):
 
 
 # Number Input class
-class NumberInput(QWidget):
+class IntNumberInput(QWidget):
+    on_change = pyqtSignal(object)
+    on_settings_change = pyqtSignal(dict)
+
+    def __init__(self, label="Number", interval=(0, 100), step=1, default=0, minWidth=100, callOnEnter=True, sliderRelease=True):
+        super().__init__()
+        layout = QVBoxLayout()
+        hlayout = QHBoxLayout()
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        hlayout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+
+        # Set the value range
+        self.interval = interval
+        self.delta = interval[1] - interval[0]
+        self.start = interval[0]
+        self.max_index = self.delta
+        self.current_value = default
+
+        # Set the Label and TextBox
+        self.label = QLabel(label + " = ")
+        self.textbox = QLineEdit()
+        self.textbox.setValidator(QRegularExpressionValidator(QRegularExpression("^$|[+-]?[0-9]+")))
+        self.textbox.setText(self.value_to_text(self.current_value))
+
+        # Create the slider
+        self.slider = QSlider(Qt.Orientation.Horizontal)
+        self.slider.setMinimum(interval[0])
+        self.slider.setMaximum(interval[1])
+        self.slider.setValue(self.value_to_slider_pos(self.current_value))
+        self.slider.setSingleStep(1)
+        self.slider.setMinimumWidth(minWidth)
+
+        inputSettings = ToolButton("mdi6.cog")
+        self.sliderReleaseCheck = QCheckBox("Slider Release")
+        self.min_range = TextInput("Min:", layout='h')
+        self.max_range = TextInput("Max:", layout='h')
+        self.step_input = TextInput("Step:", layout='h')
+        self.min_range.setVisible(False)
+        self.max_range.setVisible(False)
+        self.step_input.setVisible(False)
+        self.sliderReleaseCheck.setVisible(False)
+        self.min_range.on_change.connect(self.changeSettings)
+        self.max_range.on_change.connect(self.changeSettings)
+        self.step_input.on_change.connect(self.changeSettings)
+        self.sliderReleaseCheck.stateChanged.connect(self.changeSettings)
+        self.min_range.setMaximumWidth(105)
+        self.max_range.setMaximumWidth(105)
+        self.step_input.setMaximumWidth(105)
+        inputSettings.on_click.connect(self.showSettings)
+
+        h2layout = QHBoxLayout()
+        h2layout.addStretch(1)
+        h2layout.addWidget(self.sliderReleaseCheck)
+        h2layout.addWidget(self.min_range)
+        h2layout.addWidget(self.max_range)
+        h2layout.addWidget(self.step_input)
+
+        hlayout.addWidget(self.label)
+        hlayout.addWidget(self.textbox)
+        hlayout.addWidget(inputSettings)
+        layout.addLayout(hlayout)
+        layout.addWidget(self.slider)
+        layout.addLayout(h2layout)
+        self.setLayout(layout)
+
+        if callOnEnter:
+            self.textbox.returnPressed.connect(self.on_text_change)
+        else:
+            self.textbox.textEdited.connect(self.on_text_change)
+
+        self.slider.sliderReleased.connect(self.slider_released)
+        self.slider.valueChanged.connect(self.slider_changed)
+
+    def changeSettings(self, _):
+        # Set the value range
+        self.interval = (int(self.min_range.text()), int(self.max_range.text()))
+        self.delta = self.interval[1] - self.interval[0]
+        self.start = self.interval[0]
+        self.max_index = self.delta
+        self.slider.setMinimum(self.interval[0])
+        self.slider.setMaximum(self.interval[1])
+        self.on_settings_change.emit(
+            {"interval": self.interval, 
+             "step": 1,
+             "sliderRelease": self.sliderReleaseCheck.isChecked()})
+            
+        self.on_text_change() # to update the slider position and value based on the new settings
+
+    def showSettings(self):
+        if self.slider.isVisible():
+            self.min_range.setText(str(self.interval[0]))
+            self.max_range.setText(str(self.interval[1]))
+            self.step_input.setText(str(1))
+        self.min_range.setVisible(not self.min_range.isVisible())
+        self.max_range.setVisible(not self.max_range.isVisible())
+        self.step_input.setVisible(not self.step_input.isVisible())
+        # self.slider.setVisible(not self.slider.isVisible())
+        self.sliderReleaseCheck.setVisible(not self.sliderReleaseCheck.isVisible())
+
+    def slider_released(self):
+        # self.textbox.blockSignals(True)
+        # self.textbox.setText(self.value_to_text(self.slider_pos_to_value(self.slider.value())))
+        # self.textbox.blockSignals(False)
+        if self.sliderReleaseCheck.isChecked():
+            self.on_slider_change()
+
+    def slider_changed(self):
+        self.textbox.blockSignals(True)
+        self.textbox.setText(self.value_to_text(self.slider_pos_to_value(self.slider.value())))
+        self.textbox.blockSignals(False)
+        if not self.sliderReleaseCheck.isChecked():
+            self.on_slider_change()
+
+    def on_slider_change(self):
+        self.current_value = self.slider_pos_to_value(self.slider.value())
+        self.on_change.emit(int(self.current_value))
+
+    def on_text_change(self):
+        text = self.textbox.text()
+        if text == "":
+            self.textbox.setText(self.value_to_text(self.current_value))
+            return
+        
+        value = 0
+        try:
+            value = int(text) # try to convert the text to an int
+        except ValueError as e:
+            print(f"Error: {e}")
+            self.textbox.blockSignals(True)
+            self.textbox.setText(self.value_to_text(self.current_value))
+            self.textbox.blockSignals(False)
+            return
+        
+        resetTextValue = False
+        if value < self.interval[0]:
+            self.current_value = self.interval[0]
+            resetTextValue = True
+        if value > self.interval[1]:
+            self.current_value = self.interval[1]
+            resetTextValue = True
+
+        if resetTextValue:
+            self.textbox.blockSignals(True)
+            self.textbox.setText(self.value_to_text(self.current_value))
+            self.textbox.blockSignals(False)
+        else:
+            self.current_value = value
+
+        self.slider.blockSignals(True)
+        self.slider.setValue(self.value_to_slider_pos(self.current_value))
+        self.slider.blockSignals(False)
+        
+        self.on_change.emit(int(self.current_value))
+
+
+    def value(self):
+        return self.current_value
+    
+    def value_to_slider_pos(self, value):
+        return int(value)
+
+    def slider_pos_to_value(self, pos):
+        return int(pos)
+    
+    def value_to_text(self, value):
+        return str(value)
+
+
+# Number Input class
+class FloatNumberInput(QWidget):
     on_change = pyqtSignal(object)
 
     def __init__(self, label="Number", interval=(0, 100), step=1, default=0, minWidth=100, callOnEnter=True, sliderRelease=True):
@@ -263,9 +437,18 @@ class NumberInput(QWidget):
         self.slider.setSingleStep(1)
         self.slider.setMinimumWidth(minWidth)
 
+        inputSettings = ToolButton("mdi6.cog")
+        self.min_range = QLineEdit()
+        self.max_range = QLineEdit()
+        self.step_input = QLineEdit()
+        self.min_range.setVisible(False)
+        self.max_range.setVisible(False)
+        self.step_input.setVisible(False)
+        inputSettings.on_click.connect(self.showSettings)
 
         hlayout.addWidget(self.label)
         hlayout.addWidget(self.textbox)
+        hlayout.addWidget(inputSettings)
         layout.addLayout(hlayout)
         layout.addWidget(self.slider)
         self.setLayout(layout)
@@ -279,6 +462,24 @@ class NumberInput(QWidget):
             self.slider.sliderReleased.connect(self.on_slider_change)
         else:
             self.slider.valueChanged.connect(self.on_slider_change)
+
+    def changeSettings(self):
+        # Set the value range
+        self.interval = (interval)
+        self.delta = interval[1] - interval[0]
+        self.integer = isinstance(self.delta, int) and isinstance(default, int) and (step == 1)
+        self.start = interval[0]
+        if self.integer:
+            self.max_index = self.delta
+            self.decimals = 0
+        else:
+            self.max_index = int(np.ceil(self.delta / step))
+            self.decimals = int(np.ceil(np.log10(1.0 / step)))
+
+    def showSettings(self):
+        self.min_range.setVisible(not self.min_range.isVisible())
+        self.max_range.setVisible(not self.max_range.isVisible())
+        self.step_input.setVisible(not self.step_input.isVisible())
 
     def on_slider_change(self):
         pos = self.slider.value()
@@ -350,8 +551,6 @@ class NumberInput(QWidget):
         if self.integer:
             return str(value)
         return str(round(value, self.decimals))
-
-
 
 
 

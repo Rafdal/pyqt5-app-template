@@ -3,7 +3,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
 from typing import Optional
 
-from .BasicWidgets import SwitchButton, NumberInput, DropDownMenu, TextInput
+from .BasicWidgets import SwitchButton, IntNumberInput, DropDownMenu, TextInput
 
 from utils.ParamList import ParameterList, TextParam, NumParam, ChoiceParam, BoolParam, ConstParam
 
@@ -99,9 +99,10 @@ class DynamicSettingsWidget(QWidget):
                                       on_click=lambda v, k=key: self.on_param_set(k, v), value=param.value)
 
             elif param.type == "Number":
-                settingWidget = NumberInput(param.text, interval=param.interval, step=param.step, default=param.value, 
+                settingWidget = IntNumberInput(param.text, interval=param.interval, step=param.step, default=param.value, 
                                     sliderRelease=self.sliderRelease)
                 settingWidget.on_change.connect(lambda v, k=key: self.on_param_set(k, v))
+                settingWidget.on_settings_change.connect(lambda settings, k=key: self.on_param_settings_change(k, settings))
             
             elif param.type == "Choice":
                 opt_dict = {}
@@ -147,3 +148,7 @@ class DynamicSettingsWidget(QWidget):
             return
         self.paramList[key] = value
         self.on_edit.emit()
+
+    def on_param_settings_change(self, key, settings):
+        print(f"Settings for '{key}' changed: {settings}")
+        self.paramList[key].data = settings

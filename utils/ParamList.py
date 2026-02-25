@@ -85,7 +85,7 @@ class NumParam(ParameterBase):
 
     @property
     def data(self):
-        return {"value": self.value, "interval": self.interval, "step": self.step}
+        return {"value": self.value, "interval": self.interval, "step": self.step, "sliderRelease": False}
     
     @data.setter
     def data(self, data):
@@ -104,6 +104,7 @@ class NumParam(ParameterBase):
         self.value = data["value"]
         self.interval = data["interval"]
         self.step = data["step"]
+        self.sliderRelease = data.get("sliderRelease", False)
     
 
 class ChoiceParam(ParameterBase):

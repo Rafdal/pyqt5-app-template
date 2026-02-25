@@ -1,8 +1,11 @@
 from PyQt6.QtGui import QMouseEvent
 from PyQt6.QtWidgets import QPushButton, QWidget, QLabel
-from PyQt6 import QtCore as Qt
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QEvent
 import qtawesome as qta
+import os
+
+# Run `qta-browser` in terminal to see available icons and their names
+import typing as T
 
 class AlternatingIconButton(QLabel):
     on_click = pyqtSignal(bool)
@@ -17,7 +20,7 @@ class AlternatingIconButton(QLabel):
         self._size = size
         self.setIcon(icon0, color0)
         self.setMouseTracking(True)
-        self.setCursor(Qt.Qt.CursorShape.PointingHandCursor)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setContentsMargins(5, 2, 5, 2)
     
     def setIcon(self, icon, color):
@@ -45,3 +48,30 @@ class SwitchThemeButton(AlternatingIconButton):
         self.setIcon(self.icon1, self.color1)
 
         self.setToolTip("Toggle between light and dark themes")
+
+
+class ToolButton(QLabel):
+    on_click = pyqtSignal()
+
+    def __init__(self, icon: str, color: T.Union[str, None] = None, size: int = 30):
+        super().__init__()
+        self.icon = icon
+        self.color = color if color is not None else os.getenv("QTMATERIAL_PRIMARYCOLOR", "black")
+        self._size = size
+        self.setIcon(icon, self.color)
+        self.setMouseTracking(True)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setContentsMargins(2, 2, 2, 2)
+
+    def changeEvent(self, a0: QEvent | None) -> None:
+        if a0 is not None and a0.type() == QEvent.Type.PaletteChange:
+            self.color = os.getenv("QTMATERIAL_PRIMARYCOLOR", "black")
+            self.setIcon(self.icon, self.color)
+        return super().changeEvent(a0)
+    
+    def setIcon(self, icon, color):
+        self.setPixmap(qta.icon(icon, color=color, size=self._size).pixmap(self._size, self._size))
+
+    def mousePressEvent(self, a0: QMouseEvent | None) -> None:
+        self.on_click.emit()
+        return super().mousePressEvent(a0)
