@@ -5,7 +5,8 @@ from collections import deque
 
 class InputTerminal(QLineEdit):
     returnPressed = pyqtSignal(str)  # Signal to emit when Enter is pressed
-    
+    include_endl = True  # Whether to include a newline character at the end of the input
+
     def __init__(self, parent=None):
         super(InputTerminal, self).__init__(parent)
         self.setPlaceholderText("Enter text here...")
@@ -20,7 +21,7 @@ class InputTerminal(QLineEdit):
                 self.user_input_history.append(user_input)
                 self.user_input_index = 0
                 self.clear()
-                self.returnPressed.emit(user_input)  # Emit the signal with the user input
+                self.returnPressed.emit(user_input + ("\n" if self.include_endl else ""))  # Emit the signal with the user input and optional newline
             else:
                 event.ignore()
         if event.key() == Qt.Key.Key_Up:

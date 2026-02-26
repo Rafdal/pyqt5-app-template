@@ -1,7 +1,8 @@
 from utils.ParamList import ParameterList, NumParam, BoolParam, TextParam, ChoiceParam, ConstParam
-from backend.Settings import Settings
-
 from PyQt6.QtWidgets import QApplication
+
+from backend.Settings import Settings
+from backend.handlers.SerialPortHandler import SerialPortHandler
 
 class MainModel:
     # Model attributes
@@ -12,6 +13,8 @@ class MainModel:
         self.settings = Settings(app)
         self.settings.load()
         self.settings.apply()
+
+        self.serial = SerialPortHandler()
 
     # Model methods
     def increment_count(self):

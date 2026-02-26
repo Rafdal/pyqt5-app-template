@@ -20,7 +20,7 @@ class ConsoleWidget(QWidget):
         self.consoleOutput = QTextEdit()
         self.consoleOutput.setReadOnly(True)
         self.consoleOutput.setWordWrapMode(QTextOption.WrapMode.WordWrap if wordWrap else QTextOption.WrapMode.NoWrap)
-        self.consoleOutput.setFont(QFont("Monospace", 10))
+        self.consoleOutput.setFont(QFont("Monospace", 14))
         self.consoleOutput.setText(defaultText + '\n')
         self.consoleOutput.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
 
@@ -73,3 +73,9 @@ class ConsoleWidget(QWidget):
         # Update line count
         newlines = self.consoleOutput.toPlainText().count('\n') + 1
         self.lineCount.setText(f"Lines: {newlines}")
+
+    def appendError(self, text):
+        self.appendText(text, color=QColor(255, 0, 0))  # Red color for errors
+
+    def appendInfo(self, text):
+        self.appendText(text, color=QColor(255, 255, 0)) # Yellow color for info 
