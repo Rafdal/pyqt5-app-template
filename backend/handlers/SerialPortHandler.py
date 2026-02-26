@@ -109,6 +109,7 @@ class SerialPortHandler(QObject):
             self.serial_port.setDataBits(QSerialPort.DataBits.Data8)
             self.serial_port.setParity(QSerialPort.Parity.NoParity)
             self.serial_port.setStopBits(QSerialPort.StopBits.OneStop)
+            self.serial_port.setFlowControl(QSerialPort.FlowControl.NoFlowControl)
             
             # Try to open the port
             if not self.serial_port.open(QSerialPort.OpenModeFlag.ReadWrite):
