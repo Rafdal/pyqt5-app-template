@@ -237,6 +237,7 @@ class IntNumberInput(QWidget):
 
         # Set the value range
         self.interval = interval
+        self.sliderRelease = sliderRelease
         self.delta = interval[1] - interval[0]
         self.start = interval[0]
         self.max_index = self.delta
@@ -258,9 +259,10 @@ class IntNumberInput(QWidget):
 
         inputSettings = ToolButton("mdi6.cog")
         self.sliderReleaseCheck = QCheckBox("Slider Release")
-        self.min_range = TextInput("Min:", layout='h')
-        self.max_range = TextInput("Max:", layout='h')
-        self.step_input = TextInput("Step:", layout='h')
+        self.sliderReleaseCheck.setChecked(self.sliderRelease)
+        self.min_range = TextInput("Min:", layout='h', regex="^$|[+-]?[0-9]+")
+        self.max_range = TextInput("Max:", layout='h', regex="^$|[+-]?[0-9]+")
+        self.step_input = TextInput("Step:", layout='h', regex="^$|[+-]?[0-9]+")
         self.min_range.setVisible(False)
         self.max_range.setVisible(False)
         self.step_input.setVisible(False)
@@ -317,6 +319,7 @@ class IntNumberInput(QWidget):
             self.min_range.setText(str(self.interval[0]))
             self.max_range.setText(str(self.interval[1]))
             self.step_input.setText(str(1))
+            self.sliderReleaseCheck.setChecked(self.sliderRelease)
         self.min_range.setVisible(not self.min_range.isVisible())
         self.max_range.setVisible(not self.max_range.isVisible())
         self.step_input.setVisible(not self.step_input.isVisible())
@@ -324,9 +327,6 @@ class IntNumberInput(QWidget):
         self.sliderReleaseCheck.setVisible(not self.sliderReleaseCheck.isVisible())
 
     def slider_released(self):
-        # self.textbox.blockSignals(True)
-        # self.textbox.setText(self.value_to_text(self.slider_pos_to_value(self.slider.value())))
-        # self.textbox.blockSignals(False)
         if self.sliderReleaseCheck.isChecked():
             self.on_slider_change()
 

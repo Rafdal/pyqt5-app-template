@@ -1,6 +1,7 @@
-from PyQt6.QtWidgets import QWidget, QLabel, QVBoxLayout, QScrollArea, QHBoxLayout, QTextEdit
+from PyQt6.QtWidgets import QWidget, QLabel, QVBoxLayout, QScrollArea, QHBoxLayout, QTextEdit, QSizePolicy
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont, QTextCursor, QTextOption
+from PyQt6.QtGui import QFont, QTextCursor, QColor
+from PyQt6.QtGui import QTextOption
 from frontend.widgets.BasicWidgets import TextInput, Button
 
 class ConsoleWidget(QWidget):
@@ -9,21 +10,30 @@ class ConsoleWidget(QWidget):
         
         self.defaultText = defaultText
 
-        self.setFixedWidth(fixedWidth) if fixedWidth else None
+        # Size policy to make the widget expand as much as possible
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         
+        if fixedWidth:
+            self.setFixedWidth(fixedWidth)
+
         # Create the QLabel that will display the console output
         self.consoleOutput = QTextEdit()
         self.consoleOutput.setReadOnly(True)
-        self.consoleOutput.setWordWrapMode(
-            QTextOption.WrapMode.WordWrap if wordWrap else QTextOption.WrapMode.NoWrap
-        )
+        self.consoleOutput.setWordWrapMode(QTextOption.WrapMode.WordWrap if wordWrap else QTextOption.WrapMode.NoWrap)
         self.consoleOutput.setFont(QFont("Monospace", 10))
         self.consoleOutput.setText(defaultText + '\n')
         self.consoleOutput.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+
+        # Make the text area expand to fill available space
+        self.consoleOutput.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.consoleOutput.setMinimumHeight(200)  # Set a reasonable minimum height
+        
         if textSelectable:
             self.consoleOutput.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         
-        self.consoleOutput.document().setMaximumBlockCount(maxBlockCount)
+        doc = self.consoleOutput.document()
+        if doc is not None:
+            doc.setMaximumBlockCount(maxBlockCount)  # Limit the number of lines to prevent memory issues
         
         self.lineCount = QLabel("Lines: 0")
         
@@ -33,7 +43,7 @@ class ConsoleWidget(QWidget):
         topHLayout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         topHLayout.addWidget(self.lineCount)
         topHLayout.addStretch(1)
-        topHLayout.addWidget(Button("Clear Console", on_click=lambda: self.clearConsole()))
+        topHLayout.addWidget(Button("Clear", on_click=lambda: self.clearConsole()))
         vlayout.addLayout(topHLayout)
         vlayout.addWidget(self.consoleOutput)
         
@@ -54,9 +64,11 @@ class ConsoleWidget(QWidget):
         newlines = text.count('\n')+1
         self.lineCount.setText(f"Lines: {newlines}")
 
-    def appendText(self, text):
+    def appendText(self, text, color=None):
         # Method to append text to the console, improving performance for large updates
-        self.consoleOutput.moveCursor(QTextCursor.End)
+        self.consoleOutput.moveCursor(QTextCursor.MoveOperation.End)
+        if color:
+            self.consoleOutput.setTextColor(color)
         self.consoleOutput.insertPlainText(text)
         # Update line count
         newlines = self.consoleOutput.toPlainText().count('\n') + 1

@@ -1,5 +1,7 @@
 # MainWindow.py
-from PyQt6.QtWidgets import QApplication, QMainWindow, QTabWidget, QVBoxLayout
+from PyQt6.QtWidgets import QApplication, QMainWindow, QTabWidget, QVBoxLayout, QLabel
+from PyQt6.QtGui import QPixmap
+from PyQt6.QtCore import Qt
 from frontend.pages.BaseClassPage import BaseClassPage
 
 from frontend.MenuBar import CreateMenuBar
@@ -27,13 +29,23 @@ class MainWindow(QMainWindow):
     def initUI(self, pages):
 
         # center window on screen
+        self.resize(1600, 1000)
         screen = QApplication.primaryScreen()
         if screen is None:
-            return
+            raise Exception(f"No primary screen found")
         rect = screen.availableGeometry()
-        rw, rh, sw, sh = rect.width(), rect.height(), 2*self.width(), int(1.5*self.height())
+        sw, sh = self.width(), self.height()
+        rw, rh = rect.width(), rect.height()
         self.setMinimumSize(400, 300)
         self.setGeometry(rw // 2 - sw // 2, rh // 2 - sh // 2, sw, sh)
+
+        image_label = QLabel()
+        pixmap = QPixmap('frontend/assets/icon.png')
+        if not pixmap.isNull():
+            image_label.setPixmap(pixmap.scaled(600, 600, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setCentralWidget(image_label)
+        self.show()
 
         # Check we don't have repeated titles
         titles = [page.title for page in pages]

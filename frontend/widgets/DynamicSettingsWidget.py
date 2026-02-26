@@ -11,14 +11,13 @@ class DynamicSettingsWidget(QWidget):
     paramList: Optional[ParameterList]
     on_edit = pyqtSignal()
 
-    def __init__(self, paramList: Optional[ParameterList]=None, title=None, submit_on_slider_move=False, on_edit=None):
+    def __init__(self, paramList: Optional[ParameterList]=None, title=None, on_edit=None):
         super().__init__()
         self.paramList = paramList
         if on_edit is not None:
             self.on_edit.connect(on_edit)
         self.title = title
         self.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
-        self.sliderRelease = not submit_on_slider_move
         self.initUI()
 
     def initUI(self):
@@ -49,7 +48,7 @@ class DynamicSettingsWidget(QWidget):
         self.setLayout(layout)
         self.updateUI(self.paramList, self.title)
 
-    def updateUI(self, paramList: Optional[ParameterList], title="Dynamic Settings"):
+    def updateUI(self, paramList: Optional[ParameterList], title=None):
         self.paramList = paramList
         while self.dynamicLayout.count():
             child = self.dynamicLayout.takeAt(0)
@@ -100,7 +99,7 @@ class DynamicSettingsWidget(QWidget):
 
             elif param.type == "Number":
                 settingWidget = IntNumberInput(param.text, interval=param.interval, step=param.step, default=param.value, 
-                                    sliderRelease=self.sliderRelease)
+                                    sliderRelease=param.sliderRelease)
                 settingWidget.on_change.connect(lambda v, k=key: self.on_param_set(k, v))
                 settingWidget.on_settings_change.connect(lambda settings, k=key: self.on_param_settings_change(k, settings))
             
@@ -150,5 +149,6 @@ class DynamicSettingsWidget(QWidget):
         self.on_edit.emit()
 
     def on_param_settings_change(self, key, settings):
-        print(f"Settings for '{key}' changed: {settings}")
-        self.paramList[key].data = settings
+        if self.paramList is None:
+            return
+        self.paramList.setData(key, settings)

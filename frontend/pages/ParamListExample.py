@@ -30,8 +30,7 @@ class ParamListExample(BaseClassPage):
         # Create a DynamicSettingsWidget with the ParameterList
         self.dynamicSettingsWidget = DynamicSettingsWidget(self.paramList, 
                                                            title="Math Operation Settings",
-                                                           on_edit=self.on_param_edit,
-                                                           submit_on_slider_move=True)
+                                                           on_edit=self.on_param_edit)
 
         # Show the result of the math operation in a QLabel
         self.resultLabel = QLabel("Result: 0")

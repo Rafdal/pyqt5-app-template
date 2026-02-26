@@ -78,6 +78,7 @@ class NumParam(ParameterBase):
         self.type = "Number"
         self.interval = interval
         self.step = step
+        self.sliderRelease = kwargs.get("sliderRelease", False)
         if default is not None:
             self.value = default
         else:
@@ -85,26 +86,34 @@ class NumParam(ParameterBase):
 
     @property
     def data(self):
-        return {"value": self.value, "interval": self.interval, "step": self.step, "sliderRelease": False}
+        return {"value": self.value, "interval": self.interval, "step": self.step, "sliderRelease": self.sliderRelease}
     
     @data.setter
     def data(self, data):
         if not isinstance(data, dict):
             raise ValueError("NumParam data must be a dict")
-        if "value" not in data or "interval" not in data or "step" not in data:
-            raise ValueError("NumParam data must have keys 'value', 'interval' and 'step'")
-        if not isinstance(data["value"], (int, float)):
-            raise ValueError("NumParam value must be a number")
-        if not isinstance(data["interval"], (tuple, list)) or len(data["interval"]) != 2:
-            raise ValueError("NumParam interval must be a tuple with two elements")
-        if data["interval"][0] >= data["interval"][1]:
-            raise ValueError("NumParam interval must have the first element smaller than the second")
-        if not isinstance(data["step"], (int, float)):
-            raise ValueError("NumParam step must be a number")
-        self.value = data["value"]
-        self.interval = data["interval"]
-        self.step = data["step"]
-        self.sliderRelease = data.get("sliderRelease", False)
+
+        if "value" in data:
+            if not isinstance(data["value"], (int, float)):
+                raise ValueError("NumParam value must be a number")
+            self.value = data["value"]
+
+        if "interval" in data:
+            if not isinstance(data["interval"], (tuple, list)) or len(data["interval"]) != 2:
+                raise ValueError("NumParam interval must be a tuple with two elements")
+            if data["interval"][0] >= data["interval"][1]:
+                raise ValueError("NumParam interval must have the first element smaller than the second")
+            self.interval = data["interval"]
+
+        if "step" in data:
+            if not isinstance(data["step"], (int, float)):
+                raise ValueError("NumParam step must be a number")
+            self.step = data["step"]
+
+        if "sliderRelease" in data:
+            if not isinstance(data["sliderRelease"], bool):
+                raise ValueError("NumParam sliderRelease must be a boolean")
+            self.sliderRelease = data["sliderRelease"]
     
 
 class ChoiceParam(ParameterBase):
@@ -167,6 +176,10 @@ class ParameterList():
                 raise ValueError("All parameters must inherit ParameterBase")
             self.internal_parameter_list[p.name] = p
 
+    def setData(self, key, value):
+        if key not in self.internal_parameter_list:
+            raise KeyError(f"Parameter {key} not found in the ParameterList")
+        self.internal_parameter_list[key].data = value
 
     def toDict(self) -> typing.Dict[str, typing.Dict[str, typing.Any]]:
         return {name: {"type": param.type, "data": param.data} for name, param in self.internal_parameter_list.items()}

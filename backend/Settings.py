@@ -13,7 +13,6 @@ class Settings(ParameterList):
             ChoiceParam("theme", value="blue", text="Color Theme", options=["amber","pink","blue","purple","cyan","red","lightgreen","teal","yellow"]),
             BoolParam("dark_mode", value=True, text="Dark Mode", render=False),
             BoolParam("invert_secondary", value=False, text="Invert Secondary Color"),
-            # TextParam("font_size", value="12", text="Font Size", regex="^[0-9]+$")
             NumParam("font_size", value=12, text="Font Size", interval=(8, 24), step=1)
         ])
 
