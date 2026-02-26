@@ -25,21 +25,31 @@ class TerminalTestPage(BaseClassPage):
 
     def initSignals(self):
         self.inputTerminal.returnPressed.connect(self.handleInput)
-        self.model.serial.data_received.connect(self.serial_data_received)
         self.model.serial.error.connect(self.consoleWidget.appendError)
         self.model.serial.connected.connect(lambda status: self.consoleWidget.appendInfo(f"Serial port {'connected' if status else 'disconnected'}.\n"))
         self.model.serial.bytes_per_second.connect(lambda bps: self.port_data.setText(f"Data Rate: {bps} B/s"))
+        
+        # self.model.serial.add_filter(header=b"$", terminator=b"\n", callback=self.serial_data_received)
+        # self.model.serial.add_filter(header=b"#", terminator=b";", callback=self.serial_time_received)
+        self.model.serial.data_received.connect(self.serial_data_received)
 
     def handleInput(self, inputText: str):
         self.consoleWidget.appendText(f"SENT: {inputText}\n")
         self.model.serial.send_data(bytearray(inputText, 'utf-8'))  # Send the input text as bytes to the serial port
+
+    def serial_time_received(self, data: bytearray):
+        try:
+            decoded_data = data.decode('utf-8')
+            self.consoleWidget.appendText(f"TIME: {decoded_data}\n", color="blue")
+        except UnicodeDecodeError:
+            self.consoleWidget.appendText(f"RAW TIME [{len(data)}]: {data}\n", color="blue")
 
     def serial_data_received(self, data: bytearray):
         try:
             decoded_data = data.decode('utf-8')
             self.consoleWidget.appendText(decoded_data)
         except UnicodeDecodeError:
-            self.consoleWidget.appendText(f"RAW: {data}\n")
+            self.consoleWidget.appendText(f"RAW [{len(data)}]: {data}\n")
 
     def on_tab_focus(self):
         # define what happens when the tab is focused (optional)

@@ -1,5 +1,5 @@
 from PyQt6.QtSerialPort import QSerialPort, QSerialPortInfo
-from PyQt6.QtCore import pyqtSignal, QObject, QThread, QTimer
+from PyQt6.QtCore import pyqtSignal, QObject, QThread, QTimer, pyqtBoundSignal
 import typing, dataclasses
 
 @dataclasses.dataclass
@@ -13,18 +13,55 @@ class SerialPortData:
     def __str__(self):
         return f"{self.name} | {self.description} | {self.manufacturer}"
 
+class SerialPacketFilter(QObject):
+    received = pyqtSignal(bytearray)
+    def __init__(self, header: bytes, terminator: bytes):
+        super().__init__()
+        self.header = header
+        self.terminator = terminator
+
+    def process_buffer(self, buffer: bytearray):
+        if not (buffer and self.header and self.terminator):
+            return
+
+        while True:
+            # Find first header
+            header_pos = buffer.find(self.header)
+
+            if header_pos < 0:
+                # Keep only possible partial header tail
+                keep = len(self.header) - 1
+                buffer = buffer[-keep:] if keep > 0 else bytearray()
+                return
+
+            if header_pos > 0:
+                # Drop noise before header
+                buffer = buffer[header_pos:]
+
+            # Find terminator after header
+            terminator_pos = buffer.find(self.terminator, len(self.header))
+            if terminator_pos < 0:
+                # Incomplete frame, wait for next read
+                return
+
+            # Extract payload between header and terminator
+            data_chunk = buffer[len(self.header):terminator_pos]
+            self.received.emit(bytearray(data_chunk))  # emit copy
+
+            # Remove processed frame and continue (handles multiple frames)
+            buffer = buffer[terminator_pos + len(self.terminator):]
 
 class SerialPortHandler(QObject):
     connected = pyqtSignal(bool)
     connected_status: bool = False
     error = pyqtSignal(str)
-    data_received_str = pyqtSignal(str)
+
     data_received = pyqtSignal(bytearray)
     data_sent = pyqtSignal(bytearray)
     bytes_per_second = pyqtSignal(int)
+    filters: list[SerialPacketFilter] = []  # List of SerialPacketFilter instances to process incoming data
 
-    terminator = b'\n'      # Define a terminator for the data
-    max_buffer_size = 1024  # Define a maximum buffer size
+    max_buffer_size = 2048  # Define a maximum buffer size
     bytes_received = 0      # Initialize bytes received counter
 
     def __init__(self):
@@ -40,6 +77,13 @@ class SerialPortHandler(QObject):
         self.bps_timer.setSingleShot(False)
         self.bps_timer.setInterval(1000)  # Update every second
         self.bps_timer.start(1000)  # Update every second
+
+    def add_filter(self, header: bytes, terminator: bytes, callback = None) -> None:
+        """Add a SerialPacketFilter to process incoming data"""
+        f = SerialPacketFilter(header, terminator)
+        f.received.connect(callback)
+        if f not in self.filters:
+            self.filters.append(f)
 
     def set_baudrate(self, baudrate: int):
         """Set the baud rate for the serial port"""
@@ -177,54 +221,88 @@ class SerialPortHandler(QObject):
                 if newData:
                     # Add new data to buffer
                     self.buffer.extend(newData)
+                    self.data_received.emit(bytearray(newData))  # Emit raw data received signal
                     
                     # Limit buffer size
                     if len(self.buffer) > self.max_buffer_size:
                         self.buffer = self.buffer[-self.max_buffer_size:]
                     
                     # Process complete lines
-                    self._process_buffer()
+                    for f in self.filters:
+                        f.process_buffer(self.buffer)
+                    # self._process_buffer()
+                    # self._process_buffer_with_header()
                     # self._process_buffer_str()
             except Exception as e:
                 self.error.emit(f"Error reading from serial port: {str(e)}")
 
-    def _process_buffer(self) -> None:
-        """ Process buffer as raw bytes (without terminators) """
-        if self.buffer:
-            self.data_received.emit(self.buffer)
-            self.buffer.clear()
+    # def _process_buffer_with_header(self) -> None:
+    #     if not (self.buffer and self.header and self.terminator):
+    #         return
 
+    #     while True:
+    #         # Find first header
+    #         header_pos = self.buffer.find(self.header)
 
-    def _process_buffer_str(self) -> None:
-        """Process buffer for complete lines"""
-        try:
-            # Find position of first terminator
-            terminator_pos = self.buffer.find(self.terminator)
+    #         if header_pos < 0:
+    #             # Keep only possible partial header tail
+    #             keep = len(self.header) - 1
+    #             self.buffer = self.buffer[-keep:] if keep > 0 else bytearray()
+    #             return
+
+    #         if header_pos > 0:
+    #             # Drop noise before header
+    #             self.buffer = self.buffer[header_pos:]
+
+    #         # Find terminator after header
+    #         terminator_pos = self.buffer.find(self.terminator, len(self.header))
+    #         if terminator_pos < 0:
+    #             # Incomplete frame, wait for next read
+    #             return
+
+    #         # Extract payload between header and terminator
+    #         data_chunk = self.buffer[len(self.header):terminator_pos]
+    #         self.data_chunk_received.emit(bytearray(data_chunk))  # emit copy
+
+    #         # Remove processed frame and continue (handles multiple frames)
+    #         self.buffer = self.buffer[terminator_pos + len(self.terminator):]
+
+    # def _process_buffer(self) -> None:
+    #     """ Process buffer as raw bytes (without terminators) """
+    #     if self.buffer:
+    #         self.data_received.emit(self.buffer)
+    #         self.buffer.clear()
+
+    # def _process_buffer_str(self) -> None:
+    #     """Process buffer for complete lines"""
+    #     try:
+    #         # Find position of first terminator
+    #         terminator_pos = self.buffer.find(self.terminator)
             
-            # Process all complete lines in buffer
-            while terminator_pos >= 0:
-                # Extract line (excluding terminator)
-                line_bytes = self.buffer[:terminator_pos]
+    #         # Process all complete lines in buffer
+    #         while terminator_pos >= 0:
+    #             # Extract line (excluding terminator)
+    #             line_bytes = self.buffer[:terminator_pos]
                 
-                # Convert to string and emit
-                try:
-                    line = line_bytes.decode('utf-8', errors='replace').strip()
-                    if line:
-                        self.data_received_str.emit(line)
-                except Exception as e:
-                    self.error.emit(f"Error decoding line: {str(e)}")
+    #             # Convert to string and emit
+    #             try:
+    #                 line = line_bytes.decode('utf-8', errors='replace').strip()
+    #                 if line:
+    #                     self.data_received_str.emit(line)
+    #             except Exception as e:
+    #                 self.error.emit(f"Error decoding line: {str(e)}")
                 
-                # Remove processed data from buffer (including terminator)
-                self.buffer = self.buffer[terminator_pos + len(self.terminator):]
+    #             # Remove processed data from buffer (including terminator)
+    #             self.buffer = self.buffer[terminator_pos + len(self.terminator):]
                 
-                # Find next terminator
-                terminator_pos = self.buffer.find(self.terminator)
-        except Exception as e:
-            self.error.emit(f"Error processing buffer: {str(e)}")
+    #             # Find next terminator
+    #             terminator_pos = self.buffer.find(self.terminator)
+    #     except Exception as e:
+    #         self.error.emit(f"Error processing buffer: {str(e)}")
 
 
-    def _on_data_received_str(self, data) -> None:
-        self.data_received_str.emit(data)
+    # def _on_data_received_str(self, data) -> None:
+    #     self.data_received_str.emit(data)
 
     def _on_bps_timeout(self) -> None:
         """Handle bytes per second calculation"""
