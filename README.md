@@ -2,9 +2,8 @@
 
 Improve code readability, modularity and separation between frontend and backend 
 
-<p align="left">
-  <img src="screenshot.png" width=400 >
-</p>
+<img width="975" height="707" alt="image" src="https://github.com/user-attachments/assets/6e5bd622-b47b-4042-bfbf-e2ee056863f8" />
+
 
 ## Define your Model attributes and methods this way
 ```python
