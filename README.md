@@ -2,7 +2,8 @@
 
 Improve code readability, modularity and separation between frontend and backend 
 
-<img width="975" height="707" alt="image" src="https://github.com/user-attachments/assets/6e5bd622-b47b-4042-bfbf-e2ee056863f8" />
+<img width="975" height="368" alt="image" src="https://github.com/user-attachments/assets/a3e432d8-ad9d-4295-b5b4-b7427a364048" />
+
 
 
 ## Define your Model attributes and methods this way
