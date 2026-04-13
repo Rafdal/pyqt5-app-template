@@ -16,7 +16,7 @@ class MainModel:
         self.settings.apply()
 
         self.serial = SerialPortHandler()
-        self.serial.auto_connect(include_manufacturer="arduino")
+        self.serial.auto_connect(include_manufacturer="arduino", baudrate=1000000)
         self.serial.set_wait_time(10)
 
         self.telemetry = TelemetryHandler()

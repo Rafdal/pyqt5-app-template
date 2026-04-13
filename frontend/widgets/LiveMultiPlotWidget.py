@@ -9,42 +9,66 @@ import typing as T
 PenStyleName = T.Literal['solid', 'dash', 'dot', 'dashdot', 'dashdotdot']
 LineStyleInput = T.Union[Qt.PenStyle, PenStyleName]
 SeriesInput = T.Union[T.Sequence[float], np.ndarray]
+YValuesInput = T.Union[SeriesInput, T.Sequence[SeriesInput], np.ndarray]
 RegionTuple = T.Tuple[float, float]
 
-class LivePlotWidget(QWidget):
+
+class LiveMultiPlotWidget(QWidget):
     regionChanged = pyqtSignal(float, float)
 
     def __init__(
         self,
+        line_count: int = 1,
+        labels: T.Optional[T.Sequence[str]] = None,
         navHeight: int = 100,
         enable_region: bool = True,
         initial_region: T.Optional[RegionTuple] = None,
         buffer_size: T.Optional[int] = None,
+        max_region_size: T.Optional[int] = None,
         auto_adjust_on_new_data: bool = True,
         stop_auto_adjust_on_click: bool = True,
     ) -> None:
         super().__init__()
+        if int(line_count) < 1:
+            raise ValueError('line_count must be >= 1')
+
+        self.line_count: int = int(line_count)
         self.enable_region = bool(enable_region)
         self.buffer_size = buffer_size
+        self.max_region_size = max_region_size
         self.auto_adjust_on_new_data = bool(auto_adjust_on_new_data)
         self.stop_auto_adjust_on_click = bool(stop_auto_adjust_on_click)
+
         self._x = np.array([], dtype=float)
-        self._y = np.array([], dtype=float)
-        self._sync_targets: T.List['LivePlotWidget'] = []
+        self._ys = np.empty((self.line_count, 0), dtype=float)
+
+        self._sync_targets: T.List['LiveMultiPlotWidget'] = []
         self._sync_guard: bool = False
         self._background_color: T.Any = None
-        self._pen_color: T.Any = None
-        self._pen_width: float = 1
-        self._pen_style: Qt.PenStyle = Qt.PenStyle.SolidLine
+
+        self._line_labels: T.List[str] = self._build_labels(labels)
+        self._line_pen_colors: T.List[T.Any] = [None] * self.line_count
+        self._line_pen_widths: T.List[float] = [1.0] * self.line_count
+        self._line_pen_styles: T.List[Qt.PenStyle] = [Qt.PenStyle.SolidLine] * self.line_count
 
         self.plotLayoutWidget = pg.GraphicsLayoutWidget()
         self.plotLayout = self.plotLayoutWidget.ci
         self.mainPlot = self.plotLayout.addPlot(row=1, col=0)
+
+        self.mainPlot.addLegend()
+        self.mainCurves: T.List[T.Any] = []
+        for index in range(self.line_count):
+            curve = self.mainPlot.plot([], [], pen=self._build_curve_pen(index), name=self._line_labels[index])
+            self.mainCurves.append(curve)
+        self.mainCurve = self.mainCurves[0]
+
+        self.navCurves: T.List[T.Any] = []
         if self.enable_region:
             self.navPlot = self.plotLayout.addPlot(row=2, col=0)
-            self.navCurve = self.navPlot.plot([], [], pen=self._build_curve_pen())
-
-        self.mainCurve = self.mainPlot.plot([], [], pen=self._build_curve_pen())
+            for index in range(self.line_count):
+                curve = self.navPlot.plot([], [], pen=self._build_curve_pen(index))
+                self.navCurves.append(curve)
+            self.navCurve = self.navCurves[0]
 
         self.mainPlot.showGrid(x=True, y=True)
         self.mainPlot.setLabel('bottom', 'Time', units='s')
@@ -71,6 +95,7 @@ class LivePlotWidget(QWidget):
                     if ev.button() == pg.QtCore.Qt.MouseButton.LeftButton:
                         self.auto_adjust_on_new_data = False
                     return pg.ViewBox.mousePressEvent(self.mainPlot.getViewBox(), ev)
+
                 self.region.mousePressEvent = lambda event: mouse_event(event)
 
         if initial_region is not None and self.enable_region:
@@ -80,9 +105,23 @@ class LivePlotWidget(QWidget):
         layout.addWidget(self.plotLayoutWidget)
         self.setLayout(layout)
 
+    def _build_labels(self, labels: T.Optional[T.Sequence[str]]) -> T.List[str]:
+        if labels is None:
+            return [f'Line {index + 1}' for index in range(self.line_count)]
+        label_list = [str(value) for value in labels]
+        if len(label_list) != self.line_count:
+            raise ValueError('labels length must match line_count')
+        return label_list
+
+    def _validate_line_index(self, line_index: int) -> int:
+        normalized = int(line_index)
+        if normalized < 0 or normalized >= self.line_count:
+            raise IndexError(f'line_index out of range: {line_index}')
+        return normalized
+
     def _normalize_pen_style(self, line_style: T.Optional[LineStyleInput]) -> Qt.PenStyle:
         if line_style is None:
-            return self._pen_style
+            return Qt.PenStyle.SolidLine
         if isinstance(line_style, Qt.PenStyle):
             return line_style
         if isinstance(line_style, str):
@@ -98,8 +137,83 @@ class LivePlotWidget(QWidget):
                 return style_map[normalized]
         raise ValueError('line_style must be Qt.PenStyle or one of: solid, dash, dot, dashdot, dashdotdot')
 
-    def _build_curve_pen(self) -> T.Any:
-        return pg.mkPen(color=self._pen_color, width=float(self._pen_width), style=self._pen_style)
+    def _build_curve_pen(self, line_index: int) -> T.Any:
+        index = self._validate_line_index(line_index)
+        return pg.mkPen(
+            color=self._line_pen_colors[index],
+            width=float(self._line_pen_widths[index]),
+            style=self._line_pen_styles[index],
+        )
+
+    def _apply_curve_pens(self) -> None:
+        for index in range(self.line_count):
+            pen = self._build_curve_pen(index)
+            self.mainCurves[index].setPen(pen)
+            if self.enable_region:
+                self.navCurves[index].setPen(pen)
+
+    def _coerce_y_values(self, y_values: YValuesInput, expected_size: int) -> np.ndarray:
+        y_array = np.asarray(y_values, dtype=float)
+
+        if y_array.ndim == 1:
+            if self.line_count == 1:
+                if y_array.size != expected_size:
+                    raise ValueError('x and y_values length must match')
+                return y_array.reshape(1, expected_size)
+
+            if expected_size == 1 and y_array.size == self.line_count:
+                return y_array.reshape(self.line_count, 1)
+
+            raise ValueError(
+                'for multiple lines, pass y_values as 2D data; '
+                'or pass a 1D vector of length line_count when len(x) == 1'
+            )
+
+        if y_array.ndim != 2:
+            raise ValueError('y_values must be a 1D or 2D numeric array-like')
+
+        if y_array.shape == (self.line_count, expected_size):
+            return y_array
+        if y_array.shape == (expected_size, self.line_count):
+            return y_array.T
+
+        raise ValueError(
+            'y_values shape must be (line_count, len(x)) or (len(x), line_count)'
+        )
+
+    def _update_curve_names(self) -> None:
+        for index, curve in enumerate(self.mainCurves):
+            if hasattr(curve, 'setName'):
+                curve.setName(self._line_labels[index])
+
+    def set_labels(self, labels: T.Sequence[str]) -> None:
+        self._line_labels = self._build_labels(labels)
+        self._update_curve_names()
+
+    def set_line_style(
+        self,
+        line_index: int,
+        pen_color: T.Optional[T.Any] = None,
+        line_width: T.Optional[float] = None,
+        line_style: T.Optional[LineStyleInput] = None,
+        label: T.Optional[str] = None,
+    ) -> None:
+        index = self._validate_line_index(line_index)
+
+        if pen_color is not None:
+            self._line_pen_colors[index] = pen_color
+        if line_width is not None:
+            self._line_pen_widths[index] = float(line_width)
+        if line_style is not None:
+            self._line_pen_styles[index] = self._normalize_pen_style(line_style)
+        if label is not None:
+            self._line_labels[index] = str(label)
+            self._update_curve_names()
+
+        pen = self._build_curve_pen(index)
+        self.mainCurves[index].setPen(pen)
+        if self.enable_region:
+            self.navCurves[index].setPen(pen)
 
     def set_style(
         self,
@@ -113,81 +227,75 @@ class LivePlotWidget(QWidget):
             self.plotLayoutWidget.setBackground(background_color)
 
         if pen_color is not None:
-            self._pen_color = pen_color
-
+            self._line_pen_colors = [pen_color] * self.line_count
         if line_width is not None:
-            self._pen_width = float(line_width)
-
+            normalized_width = float(line_width)
+            self._line_pen_widths = [normalized_width] * self.line_count
         if line_style is not None:
-            self._pen_style = self._normalize_pen_style(line_style)
+            normalized_style = self._normalize_pen_style(line_style)
+            self._line_pen_styles = [normalized_style] * self.line_count
 
-        pen = self._build_curve_pen()
-        self.mainCurve.setPen(pen)
-        if self.enable_region:
-            self.navCurve.setPen(pen)
+        self._apply_curve_pens()
 
     def set_buffer_size(self, buffer_size: T.Optional[int]) -> None:
         self.buffer_size = buffer_size
         if self.buffer_size is not None and self._x.size > self.buffer_size:
             self._x = self._x[-self.buffer_size:]
-            self._y = self._y[-self.buffer_size:]
-            self.mainCurve.setData(self._x, self._y)
-            if self.enable_region:
-                self.navCurve.setData(self._x, self._y)
+            self._ys = self._ys[:, -self.buffer_size:]
+            self._refresh_curves()
             self._update_view(auto_range=False)
 
-    def set_data(self, x: SeriesInput, y: SeriesInput, auto_range: T.Optional[bool] = None) -> None:
-        x = np.asarray(x, dtype=float)
-        y = np.asarray(y, dtype=float)
+    def _refresh_curves(self) -> None:
+        for index in range(self.line_count):
+            self.mainCurves[index].setData(self._x, self._ys[index])
+            if self.enable_region:
+                self.navCurves[index].setData(self._x, self._ys[index])
 
-        if x.size == 0 or y.size == 0:
+    def set_data(self, x: SeriesInput, y_values: YValuesInput, auto_range: T.Optional[bool] = None) -> None:
+        x = np.asarray(x, dtype=float)
+        if x.size == 0:
             return
-        if x.size != y.size:
-            raise ValueError('x and y must have the same length')
+
+        ys = self._coerce_y_values(y_values, x.size)
 
         if self.buffer_size is not None and x.size > self.buffer_size:
             x = x[-self.buffer_size:]
-            y = y[-self.buffer_size:]
+            ys = ys[:, -self.buffer_size:]
 
         self._x = x
-        self._y = y
-        self.mainCurve.setData(self._x, self._y)
-        if self.enable_region:
-            self.navCurve.setData(self._x, self._y)
+        self._ys = ys
+        self._refresh_curves()
 
         self._update_view(auto_range)
 
-    def append_samples(self, x: SeriesInput, y: SeriesInput, auto_range: T.Optional[bool] = None) -> None:
+    def append_samples(self, x: SeriesInput, y_values: YValuesInput, auto_range: T.Optional[bool] = None) -> None:
         x = np.asarray(x, dtype=float)
-        y = np.asarray(y, dtype=float)
-
-        if x.size == 0 or y.size == 0:
+        if x.size == 0:
             return
-        if x.size != y.size:
-            raise ValueError('x and y must have the same length')
+
+        ys = self._coerce_y_values(y_values, x.size)
 
         self._x = np.concatenate((self._x, x))
-        self._y = np.concatenate((self._y, y))
+        self._ys = np.concatenate((self._ys, ys), axis=1)
 
         if self.buffer_size is not None and self._x.size > self.buffer_size:
             self._x = self._x[-self.buffer_size:]
-            self._y = self._y[-self.buffer_size:]
+            self._ys = self._ys[:, -self.buffer_size:]
 
-        self.mainCurve.setData(self._x, self._y)
-        if self.enable_region:
-            self.navCurve.setData(self._x, self._y)
+        self._refresh_curves()
 
         self._update_view(auto_range)
 
-    def append_sample(self, x: float, y: float, auto_range: T.Optional[bool] = None) -> None:
-        self.append_samples([x], [y], auto_range=auto_range)
+    def append_sample(self, x: float, y_values: YValuesInput, auto_range: T.Optional[bool] = None) -> None:
+        self.append_samples([x], y_values, auto_range=auto_range)
 
     def clear(self) -> None:
         self._x = np.array([], dtype=float)
-        self._y = np.array([], dtype=float)
-        self.mainCurve.setData([], [])
-        if self.enable_region:
-            self.navCurve.setData([], [])
+        self._ys = np.empty((self.line_count, 0), dtype=float)
+        for index in range(self.line_count):
+            self.mainCurves[index].setData([], [])
+            if self.enable_region:
+                self.navCurves[index].setData([], [])
 
     def autoRange(self) -> None:
         self.mainPlot.getViewBox().autoRange()
@@ -197,10 +305,14 @@ class LivePlotWidget(QWidget):
             self.set_region(*x_range, emit=False)
 
     def getViewRangeX(self) -> RegionTuple:
-        return tuple(self.mainPlot.getViewBox().viewRange()[0])
+        x_range = self.mainPlot.getViewBox().viewRange()[0]
+        return float(x_range[0]), float(x_range[1])
 
     def set_auto_adjust_on_new_data(self, enabled: bool) -> None:
         self.auto_adjust_on_new_data = bool(enabled)
+
+    def set_max_region_size(self, max_region_size: T.Optional[int]) -> None:
+        self.max_region_size = max_region_size
 
     def set_region(self, min_x: float, max_x: float, emit: bool = True) -> None:
         if not self.enable_region:
@@ -219,7 +331,7 @@ class LivePlotWidget(QWidget):
             self.regionChanged.emit(lo, hi)
             self._propagate_region(lo, hi)
 
-    def link_time_sync(self, other_widget: T.Optional['LivePlotWidget'], sync_region: bool = True) -> None:
+    def link_time_sync(self, other_widget: T.Optional['LiveMultiPlotWidget'], sync_region: bool = True) -> None:
         if other_widget is None or other_widget is self:
             return
         self.mainPlot.getViewBox().setXLink(other_widget.mainPlot.getViewBox())
@@ -229,14 +341,12 @@ class LivePlotWidget(QWidget):
 
     def _on_range_changed_manually(self, window: T.Any) -> None:
         if self.stop_auto_adjust_on_click:
-            # When the user manually changes the range, we disable auto-adjust to prevent it from fighting with the user's input
             self.auto_adjust_on_new_data = False
 
     def _on_region_changed(self) -> None:
         rgn = np.asarray(self.region.getRegion(), dtype=float).ravel()
         lo = float(rgn[0])
         hi = float(rgn[1])
-        # print(f"Region changed: {lo:.2f} - {hi:.2f}")
         self._set_x_range(lo, hi)
         self.regionChanged.emit(lo, hi)
         self._propagate_region(lo, hi)
@@ -245,7 +355,6 @@ class LivePlotWidget(QWidget):
         if not self.enable_region:
             return
         lo, hi = view_range[0]
-        # print(f"Main range changed: {lo:.2f} - {hi:.2f}")
         self.region.blockSignals(True)
         self.region.setRegion((float(lo), float(hi)))
         self.region.blockSignals(False)
@@ -265,22 +374,13 @@ class LivePlotWidget(QWidget):
         if not should_adjust:
             return
 
-        if self._x.size == 0:
+        if self.max_region_size is None or self._x.size == 0:
             self.autoRange()
             return
 
-        current_lo, current_hi = self.getViewRangeX()
-        window_width = float(current_hi - current_lo)
-
-        if not np.isfinite(window_width) or window_width <= 0:
-            self.autoRange()
-            current_lo, current_hi = self.getViewRangeX()
-            window_width = float(current_hi - current_lo)
-            if not np.isfinite(window_width) or window_width <= 0:
-                return
-
+        visible_count = min(int(self.max_region_size), self._x.size)
+        lo = float(self._x[-visible_count])
         hi = float(self._x[-1])
-        lo = hi - window_width
 
         if self.enable_region:
             self.set_region(lo, hi, emit=False)
