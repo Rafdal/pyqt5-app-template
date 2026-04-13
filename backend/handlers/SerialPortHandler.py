@@ -11,7 +11,14 @@ class SerialPortData:
     def prettyPrint(self):
         return f"Port: {self.name}, Description: {self.description}, Manufacturer: {self.manufacturer}, Baud Rate: {self.baudrate}"
     def __str__(self):
-        return f"{self.name} | {self.description} | {self.manufacturer}"
+        out = ""
+        if len(self.name) > 0:
+            out += f"{self.name}"
+        if len(self.description) > 0:
+            out += f"  |  {self.description}"
+        if len(self.manufacturer) > 0:
+            out += f"  |  {self.manufacturer}"
+        return out if out else "None"
 
 class SerialPacketFilter(QObject):
     received = pyqtSignal(bytearray)
@@ -55,6 +62,7 @@ class SerialPortHandler(QObject):
     connected = pyqtSignal(bool)
     connected_status: bool = False
     error = pyqtSignal(str)
+    errors_per_second = 0
 
     data_received = pyqtSignal(bytearray)
     data_sent = pyqtSignal(bytearray)
@@ -63,6 +71,9 @@ class SerialPortHandler(QObject):
 
     max_buffer_size = 2048  # Define a maximum buffer size
     bytes_received = 0      # Initialize bytes received counter
+
+    wait_timer = QTimer()
+    wait_time_for_data = 0   # 0 means don't wait, process data immediately and emit signal. Any positive value means wait that amount of milliseconds after receiving data before processing and emitting signal. If new data is received during the wait, the timer resets.
 
     def __init__(self):
         super().__init__()
@@ -78,16 +89,22 @@ class SerialPortHandler(QObject):
         self.bps_timer.setInterval(1000)  # Update every second
         self.bps_timer.start(1000)  # Update every second
 
-    def add_filter(self, header: bytes, terminator: bytes, callback = None) -> None:
-        """Add a SerialPacketFilter to process incoming data"""
-        f = SerialPacketFilter(header, terminator)
-        f.received.connect(callback)
-        if f not in self.filters:
-            self.filters.append(f)
+    # FIXME
+    # def add_filter(self, header: bytes, terminator: bytes, callback = None) -> None:
+    #     """Add a SerialPacketFilter to process incoming data"""
+    #     f = SerialPacketFilter(header, terminator)
+    #     f.received.connect(callback)
+    #     if f not in self.filters:
+    #         self.filters.append(f)
 
     def set_baudrate(self, baudrate: int):
         """Set the baud rate for the serial port"""
         self.selected_port.baudrate = baudrate
+
+    def set_wait_time(self, timeout_ms: int):
+        """Set the wait time for processing received data. 0 means process immediately, any positive value means wait that amount of milliseconds after receiving data before processing and emitting signal. If new data is received during the wait, the timer resets."""
+        self.wait_time_for_data = timeout_ms
+        self.wait_timer.timeout.connect(self._process_buffer_after_wait)
 
     def connect(self):
         """Connect to a serial port with the specified baud rate"""
@@ -139,15 +156,45 @@ class SerialPortHandler(QObject):
             ports.append(port_data)
         return ports
     
-    def auto_connect(self, exclude_manufacturer: str):
+    def auto_connect(self, 
+                     baudrate: int = 115200, 
+                     exclude_manufacturer: str | None = None, 
+                     include_manufacturer: str | None = None,
+                     include_description: str | None = None, 
+                     initial_delay: int = 100
+                     ) -> None:
         """Automatically connect to the first available serial port that is not excluded."""
+        self.auto_connect_timer = QTimer()
+        self.auto_connect_timer.setSingleShot(True)
+        self.auto_connect_timer.timeout.connect(lambda: self._try_auto_connect(baudrate, exclude_manufacturer, include_manufacturer, include_description))
+        self.auto_connect_timer.start(initial_delay)  # Start the timer with the specified initial delay
+    
+    def _try_auto_connect(self, 
+                          baudrate: int, 
+                          exclude_manufacturer: str | None, 
+                          include_manufacturer: str | None,
+                          include_description: str | None
+                          ) -> bool:
         ports = self.list_serial_ports()
         for port in ports:
-            if exclude_manufacturer not in port.manufacturer:
-                self.selected_port = port
-                if self.connect():
-                    return True
+            manufacturer = port.manufacturer.lower() if port.manufacturer else ""
+            description = port.description.lower() if port.description else ""
+
+            if exclude_manufacturer and exclude_manufacturer.lower() in manufacturer:
+                continue
+            if include_manufacturer and include_manufacturer.lower() not in manufacturer:
+                continue
+            if include_description and include_description.lower() not in description:
+                continue
+            
+            self.selected_port = port
+            if baudrate:
+                self.selected_port.baudrate = baudrate
+            if self.connect():
+                print(f"Automatically connected to {port.prettyPrint()}")
+                return True
         self.error.emit("No suitable serial port found")
+        print("No suitable serial port found.")
         return False
 
     def disconnect(self) -> None:
@@ -189,6 +236,9 @@ class SerialPortHandler(QObject):
             self.serial_port.setDataTerminalReady(True)
             self.serial_port.setRequestToSend(True)
 
+    def send_str(self, char: str) -> bool:
+        return self.send_data(bytearray(char, 'utf-8'))
+
     def send_data(self, data: bytearray) -> bool:
         """Send data to the serial port"""
         if self.serial_port is None:
@@ -208,32 +258,38 @@ class SerialPortHandler(QObject):
             self.error.emit(f"Error sending data: {str(e)}")
             return False
         
+    def _process_buffer_after_wait(self) -> None:
+        """Process buffer after waiting for more data"""
+        if self.buffer:
+            self.data_received.emit(self.buffer)       
+            self.buffer.clear()  # Clear buffer after emitting data
+            
+
     def _handle_read(self) -> None:
         """Handle data received from the serial port"""
         if self.serial_port is None:
             raise ValueError("Serial port object is not initialized")
         if self.serial_port.bytesAvailable() > 0:
             try:
-                # Convert QByteArray to bytes properly
                 raw_data = self.serial_port.readAll()
                 newData = bytes(raw_data.data())
                 self.bytes_received += len(newData)  # Update bytes received counter
                                 
                 if newData:
-                    # Add new data to buffer
                     self.buffer.extend(newData)
-                    self.data_received.emit(bytearray(newData))  # Emit raw data received signal
-                    
-                    # Limit buffer size
+                    # Always limit buffer size
                     if len(self.buffer) > self.max_buffer_size:
                         self.buffer = self.buffer[-self.max_buffer_size:]
-                    
-                    # Process complete lines
-                    for f in self.filters:
-                        f.process_buffer(self.buffer)
-                    # self._process_buffer()
-                    # self._process_buffer_with_header()
-                    # self._process_buffer_str()
+
+                    if self.wait_time_for_data > 0:
+                        if self.wait_timer.isActive():
+                            self.wait_timer.stop()
+                        self.wait_timer.start(self.wait_time_for_data)
+                    else:
+                        self.data_received.emit(self.buffer)       
+                        self.buffer.clear()  # Clear buffer after emitting data
+
+                        
             except Exception as e:
                 self.error.emit(f"Error reading from serial port: {str(e)}")
 
@@ -309,9 +365,11 @@ class SerialPortHandler(QObject):
         """Handle bytes per second calculation"""
         self.bytes_per_second.emit(self.bytes_received)
         self.bytes_received = 0
+        self.errors_per_second = 0
 
     def _serial_error_handler(self, error) -> None:
         if type(error) != QSerialPort.SerialPortError:
+            self.errors_per_second += 1
             raise ValueError("The error is not a QSerialPort.SerialPortError")
         
         match error:
@@ -339,3 +397,11 @@ class SerialPortHandler(QObject):
                 self.error.emit(f"Error on {self.selected_port.name} UnknownError")
             case _:
                 self.error.emit(f"Undefined Error {str(error)} on {self.selected_port.name}")
+        self.errors_per_second += 1
+
+        if self.errors_per_second > 3:
+            ports = self.list_serial_ports()
+            port_names = [port.name for port in ports]
+            if self.selected_port.name not in port_names:
+                self.error.emit(f"Port {self.selected_port.name} seems to be disconnected. Disconnecting.")
+                self.disconnect()

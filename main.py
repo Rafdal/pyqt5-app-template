@@ -7,6 +7,7 @@ print("Running main.py")
 from backend.MainModel import *
 from frontend.MainWindow import *
 from frontend.pages.DemoPage import *
+from frontend.pages.PlotPage import *
 from frontend.pages.BlankPage import *
 from frontend.pages.ParamListExample import *
 from frontend.pages.TerminalTestPage import *
@@ -34,6 +35,7 @@ def main():
     # create pages
     pages = [
         DemoPage(),
+        PlotPage(),
         BlankPage(),
         ParamListExample(),
         TerminalTestPage(),

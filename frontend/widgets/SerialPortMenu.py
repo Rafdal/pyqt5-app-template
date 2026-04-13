@@ -1,15 +1,17 @@
 from PyQt6.QtWidgets import QHBoxLayout, QListWidget, QListWidgetItem, QLineEdit, QVBoxLayout, QWidget, QSizePolicy, QLabel, QDialog, QCompleter
+from PyQt6.QtWidgets import QMessageBox
 from PyQt6.QtCore import Qt, QStringListModel
 from PyQt6.QtGui import QColor, QBrush
 
 from frontend.widgets.BasicWidgets import Button, TextInput
+from backend.handlers.SerialPortHandler import SerialPortHandler
 
 class SerialPortMenu(QWidget):
     """
     A widget that provides a menu for serial port operations.
     It includes buttons for scanning ports, connecting, disconnecting, and killing the port.
     """
-    def __init__(self, serial_handler):
+    def __init__(self, serial_handler: SerialPortHandler):
         super().__init__()
         self.serial_handler = serial_handler
         layout = QVBoxLayout()
@@ -30,9 +32,11 @@ class SerialPortMenu(QWidget):
         hlayout.addWidget(refresh_btn)
         hlayout.addWidget(connect_btn)
         hlayout.addWidget(disconnect_btn)
+        hlayout.setSpacing(10)
+        hlayout.setContentsMargins(0, 0, 0, 0)
 
         self.baud_input = TextInput("Baud Rate", regex=r"^\d+$", layout='h', callOnEnter=False)
-        completer = QCompleter(["115200", "230400", "460800", "500000", "921600", "1000000"])
+        completer = QCompleter(["57600", "115200", "230400", "460800", "500000", "921600", "1000000"])
         completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
         if completer is None:
             raise Exception("Failed to create QCompleter for baud rate input.")
@@ -53,17 +57,20 @@ class SerialPortMenu(QWidget):
         hlayout.addWidget(kill_port_btn)
 
         # Add a list widget to display serial ports - with styling to ensure visibility
-        portListHLayout = QHBoxLayout()
+        # portListHLayout = QHBoxLayout()
         self.port_list = QListWidget()
         self.port_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.port_list.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded) # ScrollBarAsNeeded
         self.port_list.setFixedHeight(0)  # Start with no height
-        self.port_list.setMinimumWidth(200)  # Set a minimum width for the list widget
+        self.port_list.setMinimumWidth(300)  # Set a minimum width for the list widget
 
         # Add widgets to the main layout
         layout.addLayout(hlayout)
         # layout.addLayout(portListHLayout)
+        layout.addWidget(QLabel(" # | Name | Description | Manufacturer"))  # Header for the port list
         layout.addWidget(self.port_list)
+        layout.setSpacing(10)
+        layout.setContentsMargins(10, 10, 10, 10)
 
     def initSignals(self):
         self.serial_handler.connected.connect(self.on_connection_status_changed)
@@ -77,9 +84,9 @@ class SerialPortMenu(QWidget):
         ports = self.serial_handler.list_serial_ports()
     
         # Populate the list widget with port information - with explicit text setting
-        for port in ports:            
+        for i, port in enumerate(ports):            
             list_item = QListWidgetItem()
-            list_item.setText(str(port))
+            list_item.setText(f"{i + 1:2d}  |  {str(port)}")
             list_item.setForeground(QBrush(QColor(0, 0, 0)))  # Black text
             list_item.setData(Qt.ItemDataRole.UserRole, port)  # Store port data with explicit role
             self.port_list.addItem(list_item)
@@ -89,7 +96,7 @@ class SerialPortMenu(QWidget):
         if total_items > 0:
             row_height = self.port_list.sizeHintForRow(0)
             new_height = row_height * total_items + 2 * self.port_list.frameWidth()
-            new_height = min(new_height, 600)  # Set a maximum height to prevent it from growing too large
+            new_height = min(new_height, 400)  # Set a maximum height to prevent it from growing too large
             self.port_list.setFixedHeight(new_height)
             self.port_list.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)  # Show scrollbar if needed
         else:
@@ -104,12 +111,19 @@ class SerialPortMenu(QWidget):
 
     def connect_to_port(self):
         # Attempt to connect to the selected port
-        self.serial_handler.set_baudrate(int(self.baud_input.text()))
-        if self.serial_handler.connect():
-            print(f"Page: Port Connected")
-        else:
-            print(f"Page: Failed to connect.")
-        print(f"Port status: {'Open' if self.serial_handler.serial_port.isOpen() else 'Closed'}")
+        text_input = self.baud_input.text()
+        if text_input == "":
+            QMessageBox.warning(self, "Input Error", "Please enter a baud rate before connecting.")
+            return
+        try:
+            self.serial_handler.set_baudrate(int(text_input))
+            if self.serial_handler.connect():
+                print(f"Page: Port Connected")
+            else:
+                print(f"Page: Failed to connect.")
+            print(f"Port status: {'Open' if self.serial_handler.serial_port.isOpen() else 'Closed'}")
+        except ValueError as e:
+            self.serial_handler.error.emit(f"Invalid baud rate: {e}")
 
     def on_connection_status_changed(self, connected):
         # Update the UI based on connection status
